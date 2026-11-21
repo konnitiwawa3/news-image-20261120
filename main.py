@@ -273,13 +273,23 @@ class Newsprint:
         self.foxing(random)
         self.fibers(random)
         self.edges = []
+        self.edge_loss = []
         self.bands = []
         for number, edge in enumerate(edges):
             bands, notches, tears = edge_weather(number)
             self.bands.append(bands)
             # The footnote descends close to the bottom edge.
             limit = 10 if number == 1 else 14
-            self.edges.append([max(base, min(limit, notch)) for base, notch in zip(edge, notches)])
+            outline = [max(base, min(limit, notch)) for base, notch in zip(edge, notches)]
+            self.edges.append(outline)
+            loss = []
+            for along, (depth, tint) in enumerate(zip(outline, bands)):
+                corner = min(along, SIZE - 1 - along)
+                extra = 4 + tint // 9 + max(0, 30 - corner) * 2 // 3
+                # Keep the running heads and the footnote clear of the torn lip.
+                max_depth = 12 if number < 2 and corner >= 28 else 56
+                loss.append(min(extra, max(0, max_depth - depth)))
+            self.edge_loss.append(loss)
             self.edge_tears(number, tears)
             self.edge_foxing(number)
 
@@ -369,7 +379,22 @@ class Newsprint:
                 bottom = 2 * (SIZE - 1 - y) - bottom_edge[x]
                 left = 2 * x - left_edge[y]
                 right = 2 * (SIZE - 1 - x) - right_edge[y]
-                margin = min(top, bottom, left, right)
+                sheet_margin = min(top, bottom, left, right)
+                margin = sheet_margin
+                patina = 0
+                if sheet_margin < 95:
+                    if sheet_margin == top:
+                        side, along, inward, reach = 0, x, y, 46
+                    elif sheet_margin == bottom:
+                        side, along, inward = 1, x, SIZE - 1 - y
+                        reach = 6 + max(0, 28 - min(x, SIZE - 1 - x))
+                    elif sheet_margin == left:
+                        side, along, inward, reach = 2, y, x, 29
+                    else:
+                        side, along, inward, reach = 3, y, SIZE - 1 - x, 29
+                    fade = max(0, reach - inward)
+                    margin -= self.edge_loss[side][along] * fade // reach
+                    patina = (16 + self.bands[side][along] // 3) * fade * fade // (reach * reach)
                 mark = print_mark(x, y)
                 if margin < 0:
                     # Shadow under the torn lip, fading to the exposed backing.
@@ -377,9 +402,9 @@ class Newsprint:
                 else:
                     edge_band = max(0, 96 - margin) * (19 - cloud // 3) // 96
                     if margin < 64:
-                        weather = (top_band[x] if margin == top else
-                                   bottom_band[x] if margin == bottom else
-                                   left_band[y] if margin == left else right_band[y])
+                        weather = (top_band[x] if sheet_margin == top else
+                                   bottom_band[x] if sheet_margin == bottom else
+                                   left_band[y] if sheet_margin == left else right_band[y])
                         fade = 64 - margin
                         edge_band += (weather + fleck * 2) * fade * fade // 4096
                         # A broken tide line follows the broad discoloration.
@@ -388,7 +413,7 @@ class Newsprint:
                     lip = 17 + fiber * 3 if margin < 2 else -max(0, 15 - margin * 3)
                     fold = self.corner_fold(x, y, fiber)
                     grain = ((mark & 7) - 3) // 2
-                    shade = cloud + fleck + fiber + stain - 128 - edge_band + lip + fold + grain
+                    shade = cloud + fleck + fiber + stain - 128 - edge_band - patina + lip + fold + grain
                 # Keep the extra weathering in broad tones close to the edge.
                 if margin < 64:
                     shade = shade // 6 * 6
@@ -503,8 +528,9 @@ class Canvas:
             right = min(SIZE, left + math.ceil(text_width(text, font, tracking, scale, squeeze)) + 5)
             top = max(0, (baseline - round(cap * scale)) // SCALE - 2)
             bottom = min(SIZE, baseline // SCALE + 15)
-            abrade_ink(self.abrasion, left, top, right, bottom,
-                       print_mark(pen, baseline), font != "display27")
+            bounds = (left, top, right, bottom)
+            large = font != "display27"
+            abrade_ink(self.abrasion, *bounds, print_mark(pen, baseline), large)
         for index, character in enumerate(text):
             advance, left, top, width, height, bitmap = glyph(font, character)
             stride = (width + 7) // 8
@@ -532,6 +558,67 @@ class Canvas:
                                 if self.pixels[offset] == PAPER:
                                     self.pixels[offset] = BLEED_INK
             pen += round(advance * horizontal) + letter_gap
+        if distress:
+            self.lift_display_ink(*bounds, large)
+
+    def lift_display_ink(self, left, top, right, bottom, large):
+        """Find stroke interiors and lift irregular flakes, leaving an ink rim."""
+        width = right - left + 2
+        height = bottom - top + 2
+        depth = bytearray(width * height)
+        for y in range(1, height - 1):
+            start = (top + y - 1) * SCALE * self.side + left * SCALE
+            rows = tuple(self.pixels[start + i * self.side:
+                                     start + i * self.side + (width - 2) * SCALE]
+                         for i in range(SCALE))
+            for x in range(1, width - 1):
+                offset = (x - 1) * SCALE
+                if all(DISPLAY_INK <= ink < BLEED_INK
+                       for row in rows for ink in row[offset:offset + SCALE]):
+                    index = y * width + x
+                    depth[index] = 1 + min(depth[index - 1], depth[index - width])
+
+        centers = []
+        solid = 0
+        for y in range(height - 2, 0, -1):
+            for x in range(width - 2, 0, -1):
+                index = y * width + x
+                if depth[index]:
+                    solid += 1
+                    depth[index] = min(depth[index], 1 + min(depth[index + 1], depth[index + width]))
+                    if depth[index] >= (3 if large else 2):
+                        centers.append((x, y))
+
+        random = Random(print_mark(left + 71, top + 51))
+        random.shuffle(centers)
+        anchors = []
+        lifted = 0
+        gap = 9 if large else 5
+        for x, y in centers:
+            if lifted >= solid * (9 if large else 6) // 100:
+                break
+            if any(abs(x - px) < gap and abs(y - py) < gap for px, py in anchors):
+                continue
+            anchors.append((x, y))
+            radius = random.uniform(2.7, 4.9) if large else random.uniform(1.45, 2.65)
+            aspect = random.uniform(.55, .95)
+            tilt = random.uniform(-.84, .84)
+            nudge = random.choice((-1, 1))
+            reach = math.ceil(radius * 1.8)
+            for yy in range(max(1, y - reach), min(height - 1, y + reach + 1)):
+                v = (yy - y) / radius
+                for xx in range(max(1, x - reach), min(width - 1, x + reach + 1)):
+                    if depth[yy * width + xx] < 2:
+                        continue
+                    u = (xx - x) / radius - tilt * v
+                    core = abs(u) + abs(v) / aspect
+                    lobe = abs(u - .43) * 1.55 + abs(v - .31 * nudge) * 1.9
+                    scallop = (print_mark(left + xx, top + yy) & 7) / 31
+                    loss = round(100 * max(0, min(1, (1.22 - min(core, lobe) - scallop) * 2.6)))
+                    pixel = (top + yy - 1) * SIZE + left + xx - 1
+                    earlier = self.abrasion[pixel]
+                    self.abrasion[pixel] = max(earlier, loss)
+                    lifted += loss == 100 and earlier < 100
 
     def png(self):
         # The packed channels each have ample room for the sum of nine samples.
