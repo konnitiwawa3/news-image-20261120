@@ -6,6 +6,7 @@ import json
 import math
 import os
 from pathlib import Path
+from random import Random
 import struct
 import zlib
 
@@ -30,63 +31,7 @@ PAPER_RGB = mix_color(STONE_YELLOW, STONE_WHITE, 13)
 INK_RGB = mix_color(STONE_NEUTRAL, STONE_ORANGE, 20)
 PALETTE = (PAPER_RGB, INK_RGB, mix_color(PAPER_RGB, INK_RGB, 70),
            mix_color(PAPER_RGB, INK_RGB, 45), mix_color(PAPER_RGB, INK_RGB, 57))
-PAPER_GRAIN = (bytes(channel - 4 for channel in PAPER_RGB),
-               bytes(min(255, channel + 3) for channel in PAPER_RGB))
 
-
-COASTS = (
-    ((-168, 66), (-158, 71), (-138, 69), (-125, 72), (-108, 73), (-94, 75),
-     (-78, 72), (-64, 60), (-61, 51), (-54, 48), (-66, 44), (-75, 37),
-     (-81, 26), (-84, 28), (-89, 30), (-97, 26), (-97, 19), (-91, 18),
-     (-87, 21), (-88, 15), (-82, 9), (-77, 8), (-79, 7), (-85, 10),
-     (-95, 16), (-104, 20), (-112, 28), (-114, 27), (-118, 33),
-     (-124, 41), (-124, 49), (-132, 55), (-140, 60), (-151, 59), (-163, 55),
-     (-166, 59), (-157, 63)),
-    ((-81, 10), (-73, 12), (-65, 11), (-60, 8), (-51, 4), (-48, -1),
-     (-36, -5), (-34, -9), (-40, -20), (-46, -24), (-53, -33), (-58, -39),
-     (-65, -45), (-68, -55), (-73, -53), (-75, -43), (-72, -31), (-70, -20),
-     (-75, -14), (-81, -6), (-79, 1)),
-    ((-73, 78), (-60, 82), (-25, 82), (-15, 76), (-24, 66), (-42, 60),
-     (-50, 63), (-58, 70)),
-    ((-115, 76), (-102, 81), (-82, 83), (-66, 80), (-76, 74), (-91, 74)),
-    ((-85, 61), (-74, 58), (-63, 62), (-64, 68), (-77, 70), (-84, 66)),
-    ((-18, 65), (-14, 67), (-24, 66), (-23, 63), (-16, 63)),
-    ((-10, 36), (-10, 44), (-2, 43), (-5, 48), (3, 51), (8, 54), (10, 57),
-     (8, 58), (5, 62), (16, 69), (26, 71), (33, 70), (29, 64), (22, 61),
-     (23, 57), (29, 60), (39, 65), (42, 68), (56, 69), (65, 72), (80, 73),
-     (100, 78), (117, 73), (137, 72), (155, 71), (178, 70), (179, 64),
-     (164, 62), (158, 54), (160, 50), (153, 52), (147, 59), (137, 56),
-     (140, 49), (131, 43), (129, 40), (129, 35), (125, 37), (124, 40),
-     (119, 39), (122, 32), (119, 26), (111, 21), (108, 21), (109, 14),
-     (106, 9), (103, 9), (104, 2), (100, 5), (97, 15), (92, 21),
-     (88, 22), (84, 19), (80, 15), (77, 8), (74, 11), (72, 18),
-     (67, 24), (59, 25), (55, 24), (58, 20), (53, 16), (44, 12),
-     (41, 18), (36, 28), (33, 32), (35, 35), (28, 36), (27, 41),
-     (32, 44), (39, 44), (39, 47), (31, 46), (29, 42), (24, 40),
-     (24, 35), (20, 39), (15, 44), (12, 44), (17, 39), (15, 38),
-     (10, 43), (6, 43), (3, 42), (0, 39), (-6, 36)),
-    ((-6, 36), (4, 37), (11, 36), (12, 33), (21, 32), (31, 31),
-     (34, 28), (37, 21), (43, 12), (51, 12), (47, 5), (42, -1),
-     (40, -10), (40, -16), (35, -21), (32, -29), (25, -34), (18, -35),
-     (14, -30), (12, -18), (12, -7), (9, 0), (9, 4), (3, 5),
-     (-8, 5), (-13, 9), (-17, 15), (-16, 22), (-13, 27), (-10, 30)),
-    ((49, -13), (50, -16), (47, -24), (44, -26), (43, -23), (44, -18)),
-    ((-8, 51), (-5, 55), (-6, 58), (-3, 59), (0, 52), (1, 51), (-5, 50)),
-    ((-11, 51), (-10, 54), (-7, 55), (-6, 52)),
-    ((129, 32), (132, 34), (138, 36), (141, 41), (143, 45), (146, 44),
-     (143, 40), (141, 36), (137, 34), (132, 32)),
-    ((120, 19), (122, 18), (125, 9), (124, 6), (122, 9), (120, 13)),
-    ((95, 5), (101, 2), (107, -6), (115, -8), (108, -8), (101, -4)),
-    ((109, 1), (117, 7), (119, 4), (117, -4), (111, -4)),
-    ((131, -2), (142, -4), (151, -10), (145, -10), (137, -6), (131, -3)),
-    ((113, -22), (117, -19), (122, -18), (126, -14), (132, -12),
-     (137, -13), (136, -16), (141, -17), (143, -11), (146, -17),
-     (153, -27), (150, -35), (146, -39), (138, -36), (131, -32),
-     (126, -32), (116, -35), (114, -29)),
-    ((166, -45), (171, -41), (177, -38), (175, -42), (169, -47)),
-    ((-85, 22), (-79, 23), (-74, 20), (-79, 20)),
-    ((-73, 20), (-69, 20), (-68, 18), (-72, 18)),
-)
 
 # Monochrome glyph masks measured at 3×, compressed with their metrics. The
 # Source Sans 3 and Newsreader license notices are in fonts/.
@@ -239,6 +184,23 @@ def wrap(text, font, width):
     return [*lines, line]
 
 
+PRINT_SEED = 20261120
+
+
+def print_field(random, step, strength):
+    """Interpolate the uneven surface of the sheet or the inking roller."""
+    count = SIZE // step + 2
+    grid = [[random.randint(-strength, strength) for _ in range(count)]
+            for _ in range(count)]
+    columns = [divmod(x, step) for x in range(SIZE)]
+    for y in range(SIZE):
+        row, offset = divmod(y, step)
+        top, bottom = grid[row], grid[row + 1]
+        blend = [a * (step - offset) + b * offset for a, b in zip(top, bottom)]
+        yield [(blend[i] * (step - dx) + blend[i + 1] * dx + step * step // 2)
+               // (step * step) for i, dx in columns]
+
+
 class Canvas:
     def __init__(self):
         self.side = SIZE * SCALE
@@ -308,42 +270,46 @@ class Canvas:
                         self.pixels[target_row + x] = color
             pen += round(advance * horizontal) + letter_gap
 
-    def smallcaps(self, x, baseline, text, *, align="left", tracking=.55):
-        letters = [(character.upper(), "caption_small" if character.islower() else "caption")
-                   for character in text]
-        widths = [text_width(character, font) for character, font in letters]
-        if align == "right":
-            x -= sum(widths) + tracking * (len(widths) - 1)
-        for (character, font), width in zip(letters, widths):
-            self.text(x, baseline, character, font, INK)
-            x += width + tracking
-
     def png(self):
         # The packed channels each have ample room for the sum of nine samples.
         # This integer box filter creates no platform-dependent color profiles.
         weights = tuple((r << 24) | (g << 12) | b for r, g, b in PALETTE)
-        rgb = tuple(bytes(color) for color in PALETTE)
+        # Print texture changes tone without eroding the edges of the type.
+        random = Random(PRINT_SEED)
+        paper_field = print_field(random, 43, 4)
+        ink_field = print_field(random, 17, 9)
+        shades = range(-11, 12)
+        tinted = tuple({delta: bytes(min(255, channel + delta) for channel in color)
+                       for delta in shades} for color in PALETTE)
         scanlines = bytearray()
         side = self.side
-        for y in range(SIZE):
+        for y, (paper_row, ink_row) in enumerate(zip(paper_field, ink_field)):
             start = y * SCALE * side
             rows = (self.pixels[start:start + side],
                     self.pixels[start + side:start + 2 * side],
                     self.pixels[start + 2 * side:start + 3 * side])
-            scanlines.append(0)  # PNG filter type 0
-            for i in range(0, side, SCALE):
+            line = bytearray()
+            for x, i in enumerate(range(0, side, SCALE)):
                 a, b, c = (row[i:i + SCALE] for row in rows)
+                grain = ((x + y * 1031 + PRINT_SEED) * 0x9E3779B1) & 0xFFFFFFFF
+                mark = (grain ^ (grain >> 13) ^ (grain >> 21)) & 63
+                fiber = -3 if mark == 0 else 2 if mark == 1 else mark % 3 - 1
+                paper = paper_row[x] + fiber
+                ink = ink_row[x] + mark % 5 - 2
                 fill = a[0]
                 if a == b == c and a[1] == a[2] == fill:
-                    # Scatter light fibers across bare paper. Leave glyph edges alone.
-                    grain = ((i + y * 3079) * 0x9E3779B1) & 0xFFFFFFFF
-                    mark = (grain ^ (grain >> 13)) & 63
-                    scanlines.extend(PAPER_GRAIN[mark] if fill == PAPER and mark < 2 else rgb[fill])
+                    line.extend(tinted[fill][paper if fill == PAPER else ink])
                 else:
                     mix = sum(weights[index] for row in (a, b, c) for index in row)
-                    scanlines.extend((((mix >> 24) + 4) // 9,
-                                      (((mix >> 12) & 4095) + 4) // 9,
-                                      ((mix & 4095) + 4) // 9))
+                    uncovered = a.count(PAPER) + b.count(PAPER) + c.count(PAPER)
+                    tint = uncovered * paper + (9 - uncovered) * ink + 4
+                    line.extend((((mix >> 24) + tint) // 9,
+                                 (((mix >> 12) & 4095) + tint) // 9,
+                                 ((mix & 4095) + tint) // 9))
+            # PNG Sub prediction keeps the grain inexpensive to encode.
+            scanlines.append(1)
+            scanlines.extend(line[:3])
+            scanlines.extend((b - a) & 255 for a, b in zip(line, line[3:]))
 
         def chunk(kind, data):
             return (struct.pack(">I", len(data)) + kind + data +
@@ -352,28 +318,6 @@ class Canvas:
         header = struct.pack(">IIBBBBB", SIZE, SIZE, 8, 2, 0, 0, 0)
         return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header) +
                 chunk(b"IDAT", zlib.compress(scanlines, 9)) + chunk(b"IEND", b""))
-
-
-def project(lon, lat, box, bounds):
-    x, y, width, height = box
-    west, south, east, north = bounds
-    return x + (lon - west) * width / (east - west), y + (north - lat) * height / (north - south)
-
-
-def clip_polygon(points, bounds):
-    west, south, east, north = bounds
-    for axis, border, direction in ((0, west, 1), (0, east, -1), (1, south, 1), (1, north, -1)):
-        result = []
-        for start, end in zip(points[-1:] + points[:-1], points):
-            start_inside = direction * (start[axis] - border) >= 0
-            end_inside = direction * (end[axis] - border) >= 0
-            if start_inside != end_inside:
-                fraction = (border - start[axis]) / (end[axis] - start[axis])
-                result.append(tuple(a + fraction * (b - a) for a, b in zip(start, end)))
-            if end_inside:
-                result.append(end)
-        points = result
-    return points
 
 
 def stroke(page, points, color=INK, width=1, *, close=False):
@@ -409,15 +353,6 @@ def hatch(page, points, *, spacing=4, slope=.55, ink=HALF_INK, width=.65):
                           ink, weight)
 
 
-def coastlines(page, box, bounds):
-    for coast in COASTS:
-        clipped = clip_polygon(coast, bounds)
-        if len(clipped) >= 3:
-            points = [project(lon, lat, box, bounds) for lon, lat in clipped]
-            hatch(page, points, spacing=5.25, slope=-.60, ink=FAINT_INK, width=.62)
-            stroke(page, points, HALF_INK, .95, close=True)
-
-
 class Drawing:
     """Local coordinates for the small news illustrations."""
 
@@ -444,7 +379,7 @@ class Drawing:
     def hatch(self, *points, **options):
         hatch(self.page, [(self.x + x, self.y + y) for x, y in points], **options)
 
-    def text(self, x, y, label, font="bold10", ink=INK, **options):
+    def text(self, x, y, label, font, ink=INK, **options):
         self.page.text(self.x + x, self.y + y, label, font, ink, **options)
 
 
@@ -476,8 +411,8 @@ def masthead(page):
     assert text_width(date, "edition", scale=.90, squeeze=1.1) <= 960
     page.text(512, 88, date, "edition", align="center", scale=.90, squeeze=1.1)
     double_rule(page, 114)
-    page.smallcaps(32, 18, "The World in Brief", tracking=1.1)
-    page.smallcaps(992, 18, "21 Reports  /  UTC Edition", align="right", tracking=.9)
+    page.text(32, 18, "The World in Brief", "display22", scale=.62)
+    page.text(992, 18, "21 Reports, UTC Edition", "display22", align="right", scale=.62)
 
 
 def poland(d):
@@ -517,20 +452,88 @@ def poland(d):
            (150, 135), ink=HALF_INK, width=.86)
     d.dot(198, 92, 2, INK)
     d.text(193, 105, "Warsaw", "news12", align="right")
-    d.text(111, 85, "POLAND", "bold16", INK, tracking=1.3)
+    d.text(111, 85, "Poland", "display22", scale=.85)
     d.text(20, 20, "Baltic Sea", "news12", INK)
-    d.text(10, 104, "GERMANY")
-    d.text(70, 162, "CZECHIA")
-    d.text(205, 169, "SLOVAKIA")
-    d.text(270, 31, "LITHUANIA")
-    d.text(284, 62, "BELARUS")
-    d.text(314, 121, "UKRAINE")
-    d.page.smallcaps(d.x + 426, d.y + 174, "Regional Map  /  Schematic",
-                     align="right", tracking=.34)
+    d.text(10, 104, "Germany", "news12")
+    d.text(70, 162, "Czechia", "news12")
+    d.text(205, 169, "Slovakia", "news12")
+    d.text(270, 31, "Lithuania", "news12")
+    d.text(284, 62, "Belarus", "news12")
+    d.text(314, 121, "Ukraine", "news12")
+    d.text(426, 174, "Regional map", "news12", align="right")
+
+
+def cloud_curve(knots):
+    """Trace a cloud bank through hand-placed points, keeping its ends soft."""
+    curve = []
+    padded = (knots[0], *knots, knots[-1])
+    for a, b, c, d in zip(padded, padded[1:], padded[2:], padded[3:]):
+        steps = max(4, round(math.dist(b, c) / 2))
+        for step in range(steps):
+            t = step / steps
+            curve.append(tuple(
+                (2 * q + (r - p) * t + (2 * p - 5 * q + 4 * r - s) * t**2
+                 + (3 * q - p - 3 * r + s) * t**3) / 2
+                for p, q, r, s in zip(a, b, c, d)
+            ))
+    return [*curve, knots[-1]]
+
+
+def engrave_cloud(drawing, random, knots, depth):
+    curve = cloud_curve(knots)
+    count = len(curve) - 2
+    for index, ((x0, y0), (x, y), (x1, y1)) in enumerate(
+            zip(curve, curve[1:], curve[2:])):
+        length = math.hypot(x1 - x0, y1 - y0)
+        along_x, along_y = (x1 - x0) / length, (y1 - y0) / length
+        travel = (index + 1) / (count + 1)
+        belly = math.sin(math.pi * travel) ** .72
+        swell = .84 + .19 * math.sin(travel * 24) + .10 * math.sin(travel * 61)
+        reach = depth * belly * swell
+        # Short overlapping cuts follow the flow, then cross its shadow.
+        for cut in range(max(1, round(reach / 2.1))):
+            across = (cut * 2.15 + random.uniform(-.8, .8)) - reach * .24
+            start_x = x - across * along_y + random.uniform(-1.5, 1.5)
+            start_y = y + across * along_x + random.uniform(-1.3, 1.3)
+            run = random.uniform(3.4, 9.5) * (.56 + .56 * belly)
+            drift = random.uniform(-2, 3.5)
+            shade = INK if cut < reach * .22 else HALF_INK
+            drawing.line(
+                (start_x, start_y),
+                (start_x + along_x * run, start_y + along_y * run),
+                (start_x + along_x * (run + 2) - along_y * drift,
+                 start_y + along_y * (run + 2) + along_x * drift),
+                ink=shade, width=random.uniform(.42, .90),
+            )
+        if index % 2 == 0 and reach > 4:
+            drawing.line((x + along_y * 2, y - along_x * 2),
+                         (x - along_y * reach + along_x * 6,
+                          y + along_x * reach + along_y * 6),
+                         ink=HALF_INK, width=random.uniform(.36, .65))
 
 
 def cyclone(d):
-    # The bands meet the Odisha coast in a schematic, with no forecast track.
+    # Engraved storm clouds curl over a schematic coast of eastern India.
+    random = Random(75)
+    banks = (
+        (19, ((233, 45), (219, 36), (188, 28), (163, 29), (137, 38),
+              (115, 54), (108, 69), (114, 81), (129, 85), (136, 81))),
+        (13, ((228, 22), (197, 15), (174, 16), (154, 19), (129, 28),
+              (103, 44), (90, 58), (88, 72), (91, 86))),
+        (18, ((113, 16), (92, 23), (80, 38), (71, 55), (73, 74),
+              (79, 92), (95, 103), (115, 110), (133, 108), (144, 99))),
+        (22, ((66, 79), (65, 102), (78, 119), (102, 130), (130, 136),
+              (158, 130), (173, 115), (173, 100), (162, 87), (148, 84))),
+        (22, ((69, 148), (94, 155), (121, 160), (145, 155), (170, 145),
+              (189, 130), (197, 110), (193, 96), (182, 83), (163, 75),
+              (146, 73), (132, 75), (124, 86), (126, 95))),
+        (13, ((131, 172), (157, 166), (186, 153), (203, 139), (214, 119),
+              (214, 98), (206, 83), (195, 75))),
+        (8, ((230, 70), (207, 61), (181, 56), (155, 57), (133, 63), (123, 72))),
+    )
+    for depth, knots in banks:
+        engrave_cloud(d, random, knots, depth)
+
     shoreline = ((80, 7), (74, 23), (79, 29), (70, 40), (74, 55),
                  (64, 62), (66, 70), (58, 80), (63, 90), (50, 99),
                  (51, 105), (42, 109), (36, 121), (38, 134),
@@ -541,33 +544,12 @@ def cyclone(d):
             (15, 152), (19, 126), (27, 112), (35, 96),
             (46, 79), (50, 54), (57, 41), spacing=3.8, slope=-.38,
             ink=RULE, width=.70)
-    center_x, center_y = 112, 82
-    for phase, reach in ((-28, 108), (90, 92), (205, 84)):
-        points = []
-        for index in range(63):
-            travel = index / 62
-            angle = math.radians(phase + 255 * travel)
-            spread = 5 + reach * travel ** 1.75
-            points.append((center_x + spread * math.cos(angle),
-                           center_y + spread * .83 * math.sin(angle)))
-        d.line(*points, ink=INK, width=1.3)
-        # Separate contour cuts swell toward the outer edge of each band.
-        for band in range(1, 7):
-            edge = []
-            for i in range(18 + band * 4, 63 - band // 2):
-                x, y = points[i]
-                dx, dy = x - center_x, y - center_y
-                distance = math.hypot(dx, dy)
-                gap = band * (1.5 + i / 70)
-                edge.append((x + gap * dx / distance, y + gap * dy / distance))
-            d.line(*edge, ink=HALF_INK if band % 3 else INK, width=.8 if band < 4 else .54)
-    d.arc(center_x, center_y, 3.5, 2.8, 0, 360, INK, .9)
     d.line(*shoreline, ink=INK, width=1.65)
     d.line((71, 56), (59, 53), (51, 56), (41, 48), (31, 49), ink=RULE, width=.8)
     d.line((58, 80), (49, 76), (41, 80), (28, 77), ink=RULE, width=.8)
     d.line((49, 100), (39, 97), (31, 104), (20, 101), ink=RULE, width=.8)
-    d.page.smallcaps(d.x + 2, d.y + 12, "Odisha")
-    d.page.smallcaps(d.x + 227, d.y + 163, "Bay of Bengal", align="right")
+    d.text(2, 13, "Odisha", "news12")
+    d.text(235, 179, "Bay of Bengal", "news12", align="right")
 
 
 def conference(d):
@@ -610,297 +592,130 @@ def conference(d):
 def lead_stories(page):
     page.rect(468, 124, .85, 334, HALF_INK)
     page.rect(736, 124, .85, 334, HALF_INK)
-    page.smallcaps(32, 138, "1  /  European Security", tracking=.85)
-    typeset(page, 32, 184, ("RUSSIAN MISSILES", "FALL IN POLAND"),
+    typeset(page, 32, 179, ("RUSSIAN MISSILES", "FALL IN POLAND"),
             "display55", 420, 46, scale=.96, squeeze=.765)
-    paragraph(page, 32, 247,
+    paragraph(page, 32, 246,
               "NATO raises concern over an airspace violation after Russian "
               "missiles land on Polish territory.", 418, limit=2)
-    page.smallcaps(32, 281, "AP  /  08:31 UTC")
+    page.text(32, 279, "AP, 08:31 UTC", "news12")
     poland(Drawing(page, 32, 283))
 
-    page.smallcaps(488, 138, "2  /  Eastern India", tracking=.85)
-    cyclone(Drawing(page, 488, 145))
+    cyclone(Drawing(page, 488, 132))
     typeset(page, 488, 346, ("CYCLONE AKVAN", "MAKES LANDFALL"),
             "display27", 235, 30, scale=1.06, squeeze=.83)
     paragraph(page, 488, 398,
               "The storm comes ashore in Odisha. Evacuations reach 372,000 people.",
               220)
-    page.smallcaps(488, 457, "IMD  /  Down To Earth")
+    page.text(488, 457, "IMD and Down To Earth", "news12")
 
-    page.smallcaps(752, 138, "3  /  Climate Talks", tracking=.85)
     conference(Drawing(page, 752, 145))
     typeset(page, 752, 346, ("COP31 TALKS", "RUN OVERTIME"),
             "display27", 240, 30, scale=1.06, squeeze=.90)
     paragraph(page, 752, 398,
               "Negotiations continue past the deadline after fossil fuel phase-out "
               "language falls out of the draft.", 240, leading=16, limit=4)
-    page.smallcaps(752, 457, "The Guardian  /  18:56 UTC")
+    page.text(752, 457, "The Guardian, 18:56 UTC", "news12")
 
 
-def trade(d):
-    # A short shipping document sits above the deck of a channel ferry.
-    d.hatch((4, 33), (60, 33), (51, 44), (13, 44),
-            spacing=2.6, slope=-.85, ink=INK, width=.75)
-    d.hatch((16, 3), (22, 3), (23, 28), (16, 28),
-            spacing=2.25, slope=.45, ink=HALF_INK)
-    d.line((15, 1), (43, 1), (49, 8), (49, 30), (15, 30), close=True)
-    d.line((43, 1), (43, 8), (49, 8))
-    for y in (9, 15, 21):
-        d.line((25, y), (41, y), ink=HALF_INK, width=.85)
-    d.line((3, 32), (61, 32), (51, 44), (13, 44), close=True, width=1.55)
-    d.line((9, 36), (55, 36), ink=INK, width=.78)
-    d.line((2, 50), (17, 48), (31, 51), (45, 48), (59, 50), ink=HALF_INK)
-    d.line((13, 54), (27, 53), (34, 54), (49, 53), ink=RULE, width=.65)
-
-
-def capitol(d):
-    for width in (5, 9, 13):
-        d.arc(31, 24, width, 13, 185, 355, HALF_INK, .7)
-    d.arc(31, 24, 15, 14, 180, 360, INK, 1.55)
-    d.line((13, 25), (49, 25), (49, 30), (13, 30), close=True)
-    d.line((28, 11), (28, 5), (34, 5), (34, 11))
-    d.line((31, 5), (31, 1))
-    for x in (18, 25, 32, 39, 46):
-        d.line((x, 31), (x, 46), width=1.55)
-        d.hatch((x + 1, 32), (x + 4, 33), (x + 4, 46), (x + 1, 46),
-                spacing=1.9, slope=-1, width=.58)
-    d.line((11, 47), (51, 47), width=1.4)
-    d.line((6, 51), (56, 51), width=.85)
-    d.line((4, 54), (57, 54), ink=RULE, width=.65)
-
-
-def crossing(d):
-    d.hatch((15, 8), (19, 8), (19, 44), (15, 44), spacing=2.4, slope=.8, width=.64)
-    d.line((15, 7), (15, 45), (20, 45), (20, 7), close=True)
-    d.line((20, 17), (55, 17), (55, 22), (20, 22), width=1.2)
-    for x in (23, 31, 39, 47):
-        d.hatch((x, 22), (x + 3, 17), (x + 7, 17), (x + 4, 22),
-                spacing=1.7, slope=.44, ink=INK, width=.77)
-    d.line((2, 45), (10, 32), (14, 27), ink=HALF_INK, width=1.15)
-    d.line((59, 45), (49, 33), (42, 26), ink=HALF_INK, width=1.15)
-    d.line((2, 48), (59, 48), ink=RULE, width=.8)
-    d.line((33, 32), (34, 36), ink=INK, width=.55)
-    d.line((35, 40), (37, 46), ink=INK, width=.72)
-
-
-def protest(d):
-    d.hatch((7, 9), (12, 8), (15, 23), (30, 21), (34, 22), (11, 27),
-            spacing=2.25, slope=-.8, width=.64)
-    d.line((7, 9), (30, 4), (34, 22), (11, 27), close=True)
-    d.line((20, 25), (24, 47), width=1.65)
-    d.line((14, 15), (27, 12), width=1.03)
-    d.line((15, 20), (25, 18), ink=HALF_INK, width=.9)
-    d.line((44, 44), (39, 38), (40, 31), (45, 25), (45, 32),
-           (48, 35), (51, 30), (50, 24), (54, 27), (57, 35),
-           (56, 42), (51, 46), (45, 46), width=1.26)
-    d.hatch((44, 44), (40, 38), (44, 31), (45, 39), (51, 38),
-            (55, 34), (55, 41), (51, 46), spacing=2, slope=-.8, width=.65)
-    d.line((34, 49), (58, 49), ink=RULE, width=.8)
-
-
-def subpoena(d):
-    d.hatch((7, 5), (13, 6), (13, 43), (36, 43), (36, 47), (6, 47),
-            spacing=2.55, slope=-.62, width=.63)
-    d.line((6, 5), (39, 5), (46, 12), (46, 47), (6, 47), close=True)
-    d.line((39, 5), (39, 12), (46, 12))
-    for y, length in ((13, 13), (19, 22), (25, 17), (31, 16), (37, 12)):
-        d.line((16, y), (16 + length, y), ink=HALF_INK, width=.9)
-    chip = ((37, 29), (58, 29), (58, 47), (37, 47))
-    d.paper(*chip)
-    d.hatch(*chip, spacing=2.4, slope=-.75, width=.65)
-    d.line(*chip, close=True, width=1.2)
-    for x in (40, 45, 50, 55):
-        d.line((x, 47), (x, 51), width=.95)
-        d.line((x, 25), (x, 29), width=.95)
-    d.line((42, 33), (52, 33), (52, 43), (42, 43), close=True, width=.8)
-
-
-def cyber(d):
-    d.hatch((11, 14), (23, 11), (31, 4), (32, 15), (17, 18),
-            (20, 33), (30, 43), (31, 49), (18, 41), (12, 32),
-            spacing=2.3, slope=-.85, width=.75)
-    d.line((31, 4), (39, 10), (52, 13), (50, 32),
-           (44, 41), (31, 49), (18, 41), (12, 32), (10, 13), (23, 10),
-           close=True, width=1.47)
-    d.line((42, 15), (48, 17), (46, 31), (40, 39), (34, 43), ink=HALF_INK, width=.74)
-    for x, y in ((21, 20), (41, 21), (31, 36)):
-        d.line((x, y), (31, 27), width=.9)
-        d.dot(x, y, 1.45)
-    d.dot(31, 27, 1.65)
-
-
-def controller(d):
-    d.hatch((18, 15), (30, 15), (26, 19), (15, 30), (12, 40), (8, 44),
-            (5, 40), (6, 31), (12, 19), spacing=2.4, slope=.62, width=.77)
-    d.hatch((45, 15), (52, 18), (57, 29), (59, 40), (55, 46), (49, 45),
-            (42, 38), (49, 38), (54, 39), (53, 31), (49, 20),
-            spacing=2.3, slope=-.73, width=.64)
-    d.line((18, 14), (46, 14), (52, 18), (57, 29), (59, 40),
-           (55, 46), (50, 46), (41, 38), (23, 38), (13, 46),
-           (8, 45), (5, 40), (6, 31), (12, 19), (18, 14), width=1.41)
-    d.line((20, 21), (20, 32), width=1.35)
-    d.line((15, 27), (25, 27), width=1.35)
-    for x, y in ((46, 21), (51, 27), (46, 32), (41, 27)):
-        d.arc(x, y, 1.55, 1.55, 0, 360, INK, .8)
-    d.line((30, 15), (30, 8), (36, 4), (48, 4), ink=RULE, width=.85)
-
-
-def living_costs(d):
-    d.hatch((11, 18), (17, 18), (12, 42), (51, 42), (55, 46), (5, 46),
-            spacing=2.7, slope=-.72, width=.73)
-    d.line((11, 18), (50, 18), (55, 46), (5, 46), close=True, width=1.28)
-    d.arc(30, 18, 10, 13, 180, 360, INK, 1.33)
-    d.arc(30, 18, 8, 11, 195, 345, HALF_INK, .59)
-    d.line((16, 40), (24, 33), (31, 36), (42, 26), width=1.22)
-    d.line((37, 26), (42, 26), (42, 31), width=1.15)
-
-
-DESK = (
-    (trade, ("UK and EU", "strike a deal"),
-     ("Deal covers food trade and youth mobility.",), (-0.1, 51.5)),
-    (capitol, ("U.S. Senate passes", "energy permitting bill"),
-     ("The bill passes 62 to 33.",), (-77, 39)),
-    (crossing, ("Estonia to halt", "road crossings"),
-     ("Russian border traffic to stop on 1 December.",), (28, 59)),
-    (protest, ("Protests and arson", "in Bangladesh"),
-     ("Unrest before Hasina’s planned return.",), (90.4, 23.8)),
-    (subpoena, ("California AG", "subpoenas Nvidia"),
-     ("The state seeks records in an inquiry.",), (-121.5, 38.6)),
-    (cyber, ("U.S. names cyber chief",),
-     ("White House names a successor.",), (-77, 39)),
-    (controller, ("GTA VI hits $3.79bn",),
-     ("Reported first-day estimate.",), None),
-    (living_costs, ("Europe’s youth", "protest living costs"),
-     ("Protests reported across Europe.", "Plans covered over 25 countries."), (10, 43)),
-)
-
-# Each column has its own breakpoints. Article numbers still key to the map.
 DESK_COLUMNS = (
-    (32, 322, ((4, 501, "large"), (5, 608, "large"))),
-    (382, 304, ((6, 501, "medium"), (8, 585, "medium"), (9, 675, "small"))),
-    (718, 274, ((7, 501, "medium"), (11, 579, "medium"), (10, 675, "small"))),
+    (32, 293, "display27", (
+        (497, ("UK and EU", "strike a deal"),
+         ("Food trade and youth mobility", "are covered by the agreement.")),
+        (600, ("U.S. Senate passes", "energy permitting bill"),
+         ("Senators vote 62 to 33.",)),
+    )),
+    (349, 294, "display22", (
+        (497, ("Estonia to halt crossings",),
+         ("20 Nov. notice: Russian road", "border to shut from 1 Dec.")),
+        (567, ("California AG", "subpoenas Nvidia"),
+         ("State seeks records in an inquiry.",)),
+        (642, ("U.S. names cyber chief",),
+         ("White House names a successor.",)),
+    )),
+    (668, 324, "display22", (
+        (497, ("Bangladesh protests and arson",),
+         ("Before Hasina’s planned return.",)),
+        (553, ("GTA VI sells about $3.79bn",),
+         ("Reported first-day sales.",)),
+        (610, ("Europe’s youth", "protest living costs"),
+         ("Protests reported across Europe.", "Plans covered over 25 countries.")),
+    )),
 )
-
-
-def desk_story(page, number, x, top, width, size):
-    draw, heading, copy, _ = DESK[number - 4]
-    rule(page, top, x, width, ink=HALF_INK, weight=.7)
-    page.smallcaps(x, top + 14, f"{number:02d}")
-    if size == "large":
-        typeset(page, x, top + 43, heading, "display27", width - 56, 28, squeeze=.98)
-        typeset(page, x, top + 93, copy, "news14", width, 16)
-        draw(Drawing(page, x + width - 62, top + 24))
-    elif size == "medium":
-        typeset(page, x, top + 36, heading, "display22", width - 61, 21, scale=1.04)
-        typeset(page, x, top + 73, copy, "news12", width, 14)
-        draw(Drawing(page, x + width - 60, top + 12))
-    else:
-        typeset(page, x, top + 32, heading, "display22", width - 62, 0)
-        typeset(page, x, top + 49, copy, "news12", width - 62, 0)
-        draw(Drawing(page, x + width - 60, top + 2))
 
 
 def news_desk(page):
     double_rule(page, 466)
-    page.smallcaps(32, 490, "The News Desk", tracking=1.1)
-    for x, width, stories in DESK_COLUMNS:
-        for number, top, size in stories:
-            desk_story(page, number, x, top, width, size)
+    page.text(32, 489, "The News Desk", "display22", scale=.78)
+    for x in (337, 655):
+        page.rect(x, 498, .65, 193, RULE)
+    for x, width, font, stories in DESK_COLUMNS:
+        heading_step = 29 if font == "display27" else 23
+        for top, heading, copy in stories:
+            rule(page, top, x, width, weight=.65)
+            end = typeset(page, x, top + heading_step + 1, heading, font, width,
+                          heading_step, scale=1.04)
+            typeset(page, x, end - heading_step + 21, copy, "news14", width,
+                    18, scale=1.15)
 
 
 MARKETS = (
     ("S&P 500", "-3.7%"),
-    ("NIKKEI 225", "-5.06%"),
-    ("BRENT", "$92.57 / +0.6%"),
-    ("U.S. 10-YEAR CMT", "4.92%"),
+    ("Nikkei 225", "-5.06%"),
+    ("Brent", "$92.57 / +0.6%"),
+    ("U.S. 10-year CMT", "4.92%"),
 )
 
 
 def markets(page):
-    rule(page, 735, ink=INK, weight=1.4)
-    page.smallcaps(32, 757, "Markets", tracking=.9)
-    page.smallcaps(32, 774, "20 Nov  /  Daily")
-    for x, (symbol, value) in zip((184, 374, 564, 834), MARKETS):
-        page.rect(x - 13, 744, .65, 38, HALF_INK)
-        page.smallcaps(x, 750, symbol, tracking=.7)
-        page.text(x, 780, value, "display27", scale=1.14)
-    rule(page, 790, ink=INK, weight=1.2)
+    double_rule(page, 707)
+    page.text(32, 724, "Markets", "display22", scale=.64)
+    rule(page, 720, x=102, width=890, weight=.65)
+    x = 32
+    for i, (symbol, value) in enumerate(MARKETS):
+        if i:
+            page.text(x + 7, 746, "·", "display22")
+            x += 22
+        page.text(x, 747, symbol, "news14", scale=1.12)
+        x += text_width(symbol, "news14", scale=1.12) + 7
+        page.text(x, 748, value, "display27", scale=1.14)
+        x += text_width(value, "display27", scale=1.14)
+    assert x <= 992
+    rule(page, 755, ink=INK, weight=1.2)
 
 
 BRIEFS = (
-    ("LOS ANGELES  /  FORECAST", "Heavy rain and landslide alert into Friday.", (-118.25, 34)),
-    ("SHENZHEN", "Nuclear non-proliferation talks agreed.", (114.1, 22.5)),
-    ("MYANMAR", "Government rejects the ICJ ruling.", (96.1, 19.7)),
-    ("ANTHROPIC", "IPO closes. Total incl. extra shares posted.", (-122.4, 37.8)),
-    ("IRAN", "Trump raises the possibility of a deal.", (51.4, 35.7)),
-    ("MRIMA HILL, KENYA", "Preferred bidder gains right to negotiate.", (39.25, -4.4)),
-    ("SENEGAL", "Four bodies recovered after capsizing.", (-17.5, 14.7)),
-    ("UNITED NATIONS", "Ninth ballot for secretary-general stalls.", (-74, 40.7)),
-    ("GEORGIA", "Blast search ends with six dead.", (44.8, 41.7)),
-    ("MONGOLIA", "The national seal is handed over.", (106.9, 47.9)),
+    ("Los Angeles forecast", "Heavy rain and landslide risk into Friday."),
+    ("Shenzhen nuclear talks", "Non-proliferation talks agreed, Trump says."),
+    ("Myanmar rejects ICJ ruling", "Government calls Thursday’s ruling unfair."),
+    ("Anthropic closes IPO", "Total published, including extra shares."),
+    ("Trump floats a deal with Iran", "President says Iran wants an agreement."),
+    ("Mrima Hill bidder named", "Preferred bidder gains the right to negotiate."),
+    ("Four bodies found off Senegal", "Recovered after the boat capsized."),
+    ("U.N. ninth ballot stalls", "No agreement on the next secretary-general."),
+    ("Georgia ends blast search", "Six confirmed dead."),
+    ("Mongolia’s national seal", "Seal handed over following resignation vote."),
 )
 
 
 def news_briefs(page):
-    page.smallcaps(32, 807, "In Brief", tracking=1)
-    page.smallcaps(750, 807, "20 November  /  UTC", align="right", tracking=.7)
-    rule(page, 814, width=718, weight=.65)
-    page.rect(384, 821, .65, 144, RULE)
-    for i, (place, copy, _) in enumerate(BRIEFS):
-        x, y = 32 + i // 5 * 366, 829 + i % 5 * 31
-        page.smallcaps(x, y, f"{i + 12}  {place.title()}", tracking=.65)
-        typeset(page, x, y + 16, (copy,), "news14", 346, 0, scale=1.07)
-
-
-def map_number(page, x, y, number):
-    font = "bold13" if number <= 3 else "bold10"
-    text = str(number)
-    width = text_width(text, font)
-    page.rect(x - width / 2 - 1.6, y - 6, width + 3.2, 11, PAPER)
-    page.text(x, y + 3.2, text, font, align="center")
-
-
-def world_map(page):
-    page.smallcaps(770, 807, "News Map", tracking=.85)
-    rule(page, 814, 770, 222, weight=.65)
-    box = (773, 835, 214, 116)
-    bounds = (-170, -58, 180, 83)
-    coastlines(page, box, bounds)
-    locations = [(21, 52), (85, 20), (30.7, 36.9)]
-    locations += [coords for _, _, _, coords in DESK]
-    locations += [coords for _, _, coords in BRIEFS]
-    dots = []
-    shifts = range(-42, 43, 6)
-    offsets = sorted(((0, 0), *((dx, dy) for dx in shifts for dy in shifts)),
-                     key=lambda p: (p[0] ** 2 + p[1] ** 2, abs(p[1]), p))
-    for number, coords in enumerate(locations, 1):
-        if coords is None:
-            continue
-        ox, oy = project(*coords, box, bounds)
-        for dx, dy in offsets:
-            x, y = ox + dx, oy + dy
-            if 775 <= x <= 986 and 825 <= y <= 954 and all(
-                    math.hypot(x - px, y - py) >= 14 for px, py, _ in dots):
-                break
-        else:
-            raise ValueError(f"No room for map dot {number}")
-        if dx or dy:
-            page.line(ox, oy, x, y, HALF_INK, .76)
-            page.circle(ox, oy, 1.25, INK)
-        dots.append((x, y, number))
-    for x, y, number in dots:
-        map_number(page, x, y, number)
-    page.smallcaps(992, 966, "Approximate Locations", align="right", tracking=.4)
+    page.text(512, 771, "In Brief", "display22", scale=.82, align="center")
+    rule(page, 766, width=430, weight=.65)
+    rule(page, 766, x=562, width=430, weight=.65)
+    page.rect(512, 782, .65, 185, RULE)
+    for i, (heading, copy) in enumerate(BRIEFS):
+        column, row = divmod(i, 5)
+        x, y = 32 + column * 498, 796 + row * 40
+        typeset(page, x, y, (heading,), "display22", 462, 0, scale=.96)
+        typeset(page, x, y + 18, (copy,), "news14", 462, 0, scale=1.22)
 
 
 def footer(page):
-    double_rule(page, 973)
-    page.smallcaps(32, 992, "Date Check", tracking=.75)
-    typeset(page, 125, 992, (
+    double_rule(page, 980)
+    page.text(32, 999, "DATE CHECK", "display22", scale=.73)
+    typeset(page, 147, 999, (
         "Events, first reports and new developments are dated 20 November 2026 UTC. The Los Angeles forecast extends into that day.",
-    ), "news12", 867, 0)
-    typeset(page, 32, 1011, (
+    ), "news12", 845, 0, scale=1.05)
+    typeset(page, 32, 1015, (
         "Sources: AP, The Guardian, IMD, Down To Earth, UK and Estonian governments, UCA News, LA mayor, Anthropic, Al Jazeera, 1TV, Montsame, Nikkei and U.S. Treasury.",
     ), "news12", 960, 0, squeeze=.91)
 
@@ -911,7 +726,6 @@ def main():
     lead_stories(page)
     news_desk(page)
     markets(page)
-    world_map(page)
     news_briefs(page)
     footer(page)
     output = Path(os.environ.get("MAKEFUN_OUTPUT_DIR", "/output"))
