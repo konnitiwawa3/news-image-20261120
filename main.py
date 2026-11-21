@@ -12,12 +12,26 @@ import zlib
 
 SIZE = 1024
 SCALE = 3
-# The three inks come from Astryx Stone Light. The paper borrows its
-# subdued buff tone from printed newspapers. Fine rules use a tint of black.
-PAPER, INK, RUST, TEAL, RULE = range(5)
-PALETTE = tuple(bytes.fromhex(code) for code in (
-    "f4eddf", "25252a", "745752", "40675c", "aaa49f",
-))
+# Astryx Stone Light: Yellow 90 on the paper side of the mix,
+# Neutral 15 and Orange 30 for the warm tone of the printing ink.
+STONE_YELLOW = (244, 225, 183)
+STONE_WHITE = (255, 255, 255)
+STONE_NEUTRAL = (37, 37, 42)
+STONE_ORANGE = (94, 63, 39)
+
+
+def mix_color(first, second, strength):
+    return bytes((a * (100 - strength) + b * strength + 50) // 100
+                 for a, b in zip(first, second))
+
+
+PAPER, INK, HALF_INK, FAINT_INK, RULE = range(5)
+PAPER_RGB = mix_color(STONE_YELLOW, STONE_WHITE, 13)
+INK_RGB = mix_color(STONE_NEUTRAL, STONE_ORANGE, 20)
+PALETTE = (PAPER_RGB, INK_RGB, mix_color(PAPER_RGB, INK_RGB, 70),
+           mix_color(PAPER_RGB, INK_RGB, 45), mix_color(PAPER_RGB, INK_RGB, 57))
+PAPER_GRAIN = (bytes(channel - 4 for channel in PAPER_RGB),
+               bytes(min(255, channel + 3) for channel in PAPER_RGB))
 
 
 COASTS = (
@@ -89,9 +103,114 @@ FONT_DATA = (
 )
 
 
+# BEGIN ADDITIONAL FONTS
+# Precomposed glyph masks for the edition date and newspaper body.
+# Copyright (c) 2010, j. 'mach' wust, with Reserved Font Name UnifrakturCook.
+# Copyright (c) 2009, Peter Wiegel.
+#
+# This Font Software is licensed under the SIL Open Font License, Version 1.1.
+# This license is copied below, and is also available with a FAQ at:
+# http://scripts.sil.org/OFL
+#
+#
+# -----------------------------------------------------------
+# SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
+# -----------------------------------------------------------
+#
+# PREAMBLE
+# The goals of the Open Font License (OFL) are to stimulate worldwide
+# development of collaborative font projects, to support the font creation
+# efforts of academic and linguistic communities, and to provide a free and
+# open framework in which fonts may be shared and improved in partnership
+# with others.
+#
+# The OFL allows the licensed fonts to be used, studied, modified and
+# redistributed freely as long as they are not sold by themselves. The
+# fonts, including any derivative works, can be bundled, embedded,
+# redistributed and/or sold with any software provided that any reserved
+# names are not used by derivative works. The fonts and derivatives,
+# however, cannot be released under any other type of license. The
+# requirement for fonts to remain under this license does not apply
+# to any document created using the fonts or their derivatives.
+#
+# DEFINITIONS
+# "Font Software" refers to the set of files released by the Copyright
+# Holder(s) under this license and clearly marked as such. This may
+# include source files, build scripts and documentation.
+#
+# "Reserved Font Name" refers to any names specified as such after the
+# copyright statement(s).
+#
+# "Original Version" refers to the collection of Font Software components as
+# distributed by the Copyright Holder(s).
+#
+# "Modified Version" refers to any derivative made by adding to, deleting,
+# or substituting -- in part or in whole -- any of the components of the
+# Original Version, by changing formats or by porting the Font Software to a
+# new environment.
+#
+# "Author" refers to any designer, engineer, programmer, technical
+# writer or other person who contributed to the Font Software.
+#
+# PERMISSION & CONDITIONS
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of the Font Software, to use, study, copy, merge, embed, modify,
+# redistribute, and sell modified and unmodified copies of the Font
+# Software, subject to the following conditions:
+#
+# 1) Neither the Font Software nor any of its individual components,
+# in Original or Modified Versions, may be sold by itself.
+#
+# 2) Original or Modified Versions of the Font Software may be bundled,
+# redistributed and/or sold with any software, provided that each copy
+# contains the above copyright notice and this license. These can be
+# included either as stand-alone text files, human-readable headers or
+# in the appropriate machine-readable metadata fields within text or
+# binary files as long as those fields can be easily viewed by the user.
+#
+# 3) No Modified Version of the Font Software may use the Reserved Font
+# Name(s) unless explicit written permission is granted by the corresponding
+# Copyright Holder. This restriction only applies to the primary font name as
+# presented to the users.
+#
+# 4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
+# Software shall not be used to promote, endorse or advertise any
+# Modified Version, except to acknowledge the contribution(s) of the
+# Copyright Holder(s) and the Author(s) or with their explicit written
+# permission.
+#
+# 5) The Font Software, modified or unmodified, in part or in whole,
+# must be distributed entirely under this license, and must not be
+# distributed under any other license. The requirement for fonts to
+# remain under this license does not apply to any document created
+# using the Font Software.
+#
+# TERMINATION
+# This license becomes null and void if any of the above conditions are
+# not met.
+#
+# DISCLAIMER
+# THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+# OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
+# COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+# INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
+# DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
+# OTHER DEALINGS IN THE FONT SOFTWARE.
+PRINT_FONTS = (
+    "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"
+)
+# END ADDITIONAL FONTS
+
 @functools.cache
 def font_data():
-    return json.loads(zlib.decompress(base64.b85decode(FONT_DATA)))
+    inherited = json.loads(zlib.decompress(base64.b85decode(FONT_DATA)))
+    newsprint = json.loads(zlib.decompress(base64.b64decode(PRINT_FONTS)))
+    return inherited | newsprint
 
 
 @functools.cache
@@ -101,8 +220,8 @@ def glyph(font, character):
     return advance, left, top, width, height, rows
 
 
-def text_width(text, font, tracking=0, scale=1):
-    advances = sum(round(glyph(font, character)[0] * scale) for character in text)
+def text_width(text, font, tracking=0, scale=1, squeeze=1):
+    advances = sum(round(glyph(font, character)[0] * scale * squeeze) for character in text)
     gaps = max(0, len(text) - 1)
     return (advances + gaps * round(tracking * SCALE)) / SCALE
 
@@ -167,25 +286,37 @@ class Canvas:
         self.polygon(((x0 + dx, y0 + dy), (x1 + dx, y1 + dy),
                       (x1 - dx, y1 - dy), (x0 - dx, y0 - dy)), color)
 
-    def text(self, x, baseline, text, font, color=INK, *, align="left", tracking=0, scale=1):
+    def text(self, x, baseline, text, font, color=INK, *, align="left",
+             tracking=0, scale=1, squeeze=1):
         inset = {"left": 0, "center": .5, "right": 1}[align]
-        pen = round((x - inset * text_width(text, font, tracking, scale)) * SCALE)
+        horizontal = scale * squeeze
+        pen = round((x - inset * text_width(text, font, tracking, scale, squeeze)) * SCALE)
         baseline = round(baseline * SCALE)
         letter_gap = round(tracking * SCALE)
         for character in text:
             advance, left, top, width, height, bitmap = glyph(font, character)
             stride = (width + 7) // 8
-            x0, y0 = pen + round(left * scale), baseline + round(top * scale)
-            x1, y1 = x0 + round(width * scale), y0 + round(height * scale)
+            x0, y0 = pen + round(left * horizontal), baseline + round(top * scale)
+            x1, y1 = x0 + round(width * horizontal), y0 + round(height * scale)
             left_edge, right_edge = max(0, x0), min(x1, self.side)
             for y in range(max(0, y0), min(y1, self.side)):
                 source_row = min(height - 1, int((y - y0) / scale)) * stride
                 target_row = y * self.side
                 for x in range(left_edge, right_edge):
-                    col = min(width - 1, int((x - x0) / scale))
+                    col = min(width - 1, int((x - x0) / horizontal))
                     if bitmap[source_row + col // 8] & (0x80 >> (col % 8)):
                         self.pixels[target_row + x] = color
-            pen += round(advance * scale) + letter_gap
+            pen += round(advance * horizontal) + letter_gap
+
+    def smallcaps(self, x, baseline, text, *, align="left", tracking=.55):
+        letters = [(character.upper(), "caption_small" if character.islower() else "caption")
+                   for character in text]
+        widths = [text_width(character, font) for character, font in letters]
+        if align == "right":
+            x -= sum(widths) + tracking * (len(widths) - 1)
+        for (character, font), width in zip(letters, widths):
+            self.text(x, baseline, character, font, INK)
+            x += width + tracking
 
     def png(self):
         # The packed channels each have ample room for the sum of nine samples.
@@ -204,7 +335,10 @@ class Canvas:
                 a, b, c = (row[i:i + SCALE] for row in rows)
                 fill = a[0]
                 if a == b == c and a[1] == a[2] == fill:
-                    scanlines.extend(rgb[fill])
+                    # Scatter light fibers across bare paper. Leave glyph edges alone.
+                    grain = ((i + y * 3079) * 0x9E3779B1) & 0xFFFFFFFF
+                    mark = (grain ^ (grain >> 13)) & 63
+                    scanlines.extend(PAPER_GRAIN[mark] if fill == PAPER and mark < 2 else rgb[fill])
                 else:
                     mix = sum(weights[index] for row in (a, b, c) for index in row)
                     scanlines.extend((((mix >> 24) + 4) // 9,
@@ -248,12 +382,40 @@ def stroke(page, points, color=INK, width=1, *, close=False):
         page.line(*a, *b, color, width)
 
 
+def hatch(page, points, *, spacing=4, slope=.55, ink=HALF_INK, width=.65):
+    """Cut parallel burin strokes at the edges of a drawn shape."""
+    edges = tuple(zip(points, (*points[1:], points[0])))
+
+    def intercept(point):
+        x, y = point
+        return y - slope * x
+
+    offsets = [intercept(point) for point in points]
+    first = math.ceil(min(offsets) / spacing)
+    last = math.ceil(max(offsets) / spacing)
+    for index in range(first, last):
+        level = index * spacing
+        cuts = []
+        for a, b in edges:
+            near, far = intercept(a), intercept(b)
+            if min(near, far) <= level < max(near, far):
+                x = a[0] + (b[0] - a[0]) * (level - near) / (far - near)
+                cuts.append(x)
+        cuts.sort()
+        for start, end in zip(cuts[::2], cuts[1::2]):
+            if end - start > 1.5:
+                weight = width * (1 if index % 3 == 0 else .72)
+                page.line(start, level + slope * start, end, level + slope * end,
+                          ink, weight)
+
+
 def coastlines(page, box, bounds):
     for coast in COASTS:
         clipped = clip_polygon(coast, bounds)
         if len(clipped) >= 3:
             points = [project(lon, lat, box, bounds) for lon, lat in clipped]
-            stroke(page, points, RULE, .85, close=True)
+            hatch(page, points, spacing=5.25, slope=-.60, ink=FAINT_INK, width=.62)
+            stroke(page, points, HALF_INK, .95, close=True)
 
 
 class Drawing:
@@ -279,19 +441,22 @@ class Drawing:
     def paper(self, *points):
         self.page.polygon([(self.x + x, self.y + y) for x, y in points], PAPER)
 
+    def hatch(self, *points, **options):
+        hatch(self.page, [(self.x + x, self.y + y) for x, y in points], **options)
+
     def text(self, x, y, label, font="bold10", ink=INK, **options):
         self.page.text(self.x + x, self.y + y, label, font, ink, **options)
 
 
-def typeset(page, x, y, lines, font, width, leading, *, ink=INK, scale=1):
+def typeset(page, x, y, lines, font, width, leading, *, ink=INK, scale=1, squeeze=1):
     for line in lines:
-        assert text_width(line, font, scale=scale) <= width, line
-        page.text(x, y, line, font, ink, scale=scale)
+        assert text_width(line, font, scale=scale, squeeze=squeeze) <= width, line
+        page.text(x, y, line, font, ink, scale=scale, squeeze=squeeze)
         y += leading
     return y
 
 
-def paragraph(page, x, y, copy, width, *, font="body14", leading=17, limit=3):
+def paragraph(page, x, y, copy, width, *, font="news14", leading=17, limit=3):
     lines = wrap(copy, font, width)
     assert len(lines) <= limit, copy
     return typeset(page, x, y, lines, font, width, leading)
@@ -301,13 +466,18 @@ def rule(page, y, x=32, width=960, ink=RULE, weight=1):
     page.rect(x, y, width, weight, ink)
 
 
+def double_rule(page, y):
+    rule(page, y, ink=INK, weight=1.65)
+    rule(page, y + 3.4, ink=INK, weight=.67)
+
+
 def masthead(page):
-    page.text(32, 30, "THE WORLD IN BRIEF", "bold13", RUST, tracking=1.8)
-    page.text(992, 30, "21 REPORTS  /  UTC EDITION", "bold12", INK,
-              align="right", tracking=1.3)
-    rule(page, 39)
-    typeset(page, 32, 99, ("Friday, 20 November 2026",), "display55", 960, 0, scale=1.29)
-    rule(page, 114, ink=INK, weight=1.65)
+    date = "Friday, 20 November 2026"
+    assert text_width(date, "edition", scale=.90, squeeze=1.1) <= 960
+    page.text(512, 88, date, "edition", align="center", scale=.90, squeeze=1.1)
+    double_rule(page, 114)
+    page.smallcaps(32, 18, "The World in Brief", tracking=1.1)
+    page.smallcaps(992, 18, "21 Reports  /  UTC Edition", align="right", tracking=.9)
 
 
 def poland(d):
@@ -315,14 +485,23 @@ def poland(d):
     baltic = ((4, 47), (29, 42), (50, 47), (70, 41), (89, 26), (118, 20),
               (139, 23), (155, 35), (163, 36), (161, 24), (191, 22),
               (203, 25), (221, 23), (239, 29), (248, 24), (255, 16), (274, 11))
-    d.line(*baltic, ink=TEAL, width=1.1)
+    d.hatch((4, 47), (29, 42), (50, 47), (70, 41), (89, 26), (118, 20),
+            (139, 23), (155, 35), (163, 36), (161, 24), (191, 22),
+            (201, 13), (168, 9), (130, 11), (87, 15), (49, 29), (4, 35),
+            spacing=3.2, slope=-.14, ink=HALF_INK, width=.65)
+    d.line(*baltic, ink=HALF_INK, width=1.18)
     border = ((70, 41), (65, 53), (73, 67), (66, 82), (70, 100), (85, 112),
               (100, 113), (114, 131), (143, 134), (156, 145), (175, 148),
               (188, 141), (205, 145), (221, 154), (247, 151), (258, 131),
               (248, 117), (257, 104), (246, 87), (248, 74), (237, 57),
               (237, 45), (225, 39), (208, 42), (193, 40), (176, 43),
               (163, 36), (155, 35), (139, 23), (118, 20), (89, 26))
-    d.line(*border, ink=INK, width=1.55, close=True)
+    d.hatch((67, 84), (73, 100), (86, 110), (102, 112), (115, 128), (144, 131),
+            (158, 143), (177, 145), (188, 139), (208, 143), (225, 151),
+            (244, 148), (251, 138), (224, 136), (204, 129), (183, 132),
+            (159, 124), (143, 119), (119, 119), (104, 105), (85, 99),
+            spacing=3.6, slope=1.22, ink=RULE, width=.74)
+    d.line(*border, ink=INK, width=1.78, close=True)
     d.line((248, 74), (272, 75), (293, 68), (311, 76), (342, 75), (363, 82),
            (427, 70), ink=RULE, width=1)
     d.line((225, 39), (220, 30), (221, 23), ink=RULE)
@@ -335,26 +514,19 @@ def poland(d):
     # The Vistula is an orientation line, with the capital for reference.
     d.line((168, 44), (181, 49), (175, 62), (187, 67), (199, 75),
            (195, 86), (201, 99), (192, 110), (176, 116), (172, 128),
-           (150, 135), ink=TEAL, width=.85)
+           (150, 135), ink=HALF_INK, width=.86)
     d.dot(198, 92, 2, INK)
-    d.text(205, 92, "Warsaw", "body12")
+    d.text(193, 105, "Warsaw", "news12", align="right")
     d.text(111, 85, "POLAND", "bold16", INK, tracking=1.3)
-    d.text(20, 20, "Baltic Sea", "body12", TEAL)
+    d.text(20, 20, "Baltic Sea", "news12", INK)
     d.text(10, 104, "GERMANY")
     d.text(70, 162, "CZECHIA")
-    d.text(213, 169, "SLOVAKIA")
+    d.text(205, 169, "SLOVAKIA")
     d.text(270, 31, "LITHUANIA")
     d.text(284, 62, "BELARUS")
     d.text(314, 121, "UKRAINE")
-    for i in range(12):
-        x = 83 + i * 12
-        y = 112 + 1.9 * i + (i % 3) * 2
-        d.line((x, y), (x + 9, y + 12 + i % 3), ink=RULE, width=.65)
-    for i in range(8):
-        x = 18 + i * 7
-        y = 33 + (i % 3) * 2
-        d.line((x, y), (x + 4, y), ink=TEAL, width=.65)
-    d.text(424, 168, "REGIONAL MAP  /  SCHEMATIC", "bold10", RUST, align="right", tracking=.55)
+    d.page.smallcaps(d.x + 426, d.y + 174, "Regional Map  /  Schematic",
+                     align="right", tracking=.34)
 
 
 def cyclone(d):
@@ -363,8 +535,14 @@ def cyclone(d):
                  (64, 62), (66, 70), (58, 80), (63, 90), (50, 99),
                  (51, 105), (42, 109), (36, 121), (38, 134),
                  (30, 138), (21, 153), (17, 171))
-    center_x, center_y = 105, 83
-    for phase, reach in ((-28, 94), (90, 85), (205, 78)):
+    d.hatch((62, 20), (74, 23), (79, 29), (70, 40), (74, 55), (64, 62),
+            (66, 70), (58, 80), (63, 90), (50, 99), (51, 105), (42, 109),
+            (36, 121), (38, 134), (30, 138), (21, 153), (17, 171),
+            (15, 152), (19, 126), (27, 112), (35, 96),
+            (46, 79), (50, 54), (57, 41), spacing=3.8, slope=-.38,
+            ink=RULE, width=.70)
+    center_x, center_y = 112, 82
+    for phase, reach in ((-28, 108), (90, 92), (205, 84)):
         points = []
         for index in range(63):
             travel = index / 62
@@ -372,159 +550,210 @@ def cyclone(d):
             spread = 5 + reach * travel ** 1.75
             points.append((center_x + spread * math.cos(angle),
                            center_y + spread * .83 * math.sin(angle)))
-        d.line(*points, ink=TEAL, width=1.25)
-        for start, length, gap in ((33, 14, 4), (48, 12, 6)):
-            outer_edge = []
-            for x, y in points[start:start + length]:
+        d.line(*points, ink=INK, width=1.3)
+        # Separate contour cuts swell toward the outer edge of each band.
+        for band in range(1, 7):
+            edge = []
+            for i in range(18 + band * 4, 63 - band // 2):
+                x, y = points[i]
                 dx, dy = x - center_x, y - center_y
                 distance = math.hypot(dx, dy)
-                outer_edge.append((x + gap * dx / distance, y + gap * dy / distance))
-            d.line(*outer_edge, ink=TEAL, width=.75)
-    d.arc(center_x, center_y, 3.5, 2.8, 0, 360, TEAL, .9)
-    d.line(*shoreline, ink=INK, width=1.5)
+                gap = band * (1.5 + i / 70)
+                edge.append((x + gap * dx / distance, y + gap * dy / distance))
+            d.line(*edge, ink=HALF_INK if band % 3 else INK, width=.8 if band < 4 else .54)
+    d.arc(center_x, center_y, 3.5, 2.8, 0, 360, INK, .9)
+    d.line(*shoreline, ink=INK, width=1.65)
     d.line((71, 56), (59, 53), (51, 56), (41, 48), (31, 49), ink=RULE, width=.8)
     d.line((58, 80), (49, 76), (41, 80), (28, 77), ink=RULE, width=.8)
     d.line((49, 100), (39, 97), (31, 104), (20, 101), ink=RULE, width=.8)
-    d.text(2, 18, "ODISHA", "bold10", RUST, tracking=.65)
-    d.text(227, 160, "BAY OF BENGAL", "bold10", TEAL, align="right", tracking=.75)
+    d.page.smallcaps(d.x + 2, d.y + 12, "Odisha")
+    d.page.smallcaps(d.x + 227, d.y + 163, "Bay of Bengal", align="right")
 
 
 def conference(d):
     # A line drawing of a negotiation table, with an edited draft in the foreground.
-    d.line((37, 75), (178, 75), (218, 107), (60, 107), close=True, width=1.3)
-    d.line((60, 107), (60, 114), (219, 114), (218, 107), width=1)
-    d.line((37, 75), (37, 81), (60, 114), width=1)
+    d.hatch((23, 113), (59, 115), (221, 114), (215, 136), (183, 157),
+            (73, 169), (45, 157), spacing=3.70, slope=.27, ink=FAINT_INK)
+    d.hatch((37, 75), (178, 75), (218, 107), (60, 107),
+            spacing=3.2, slope=.13, ink=RULE, width=.62)
+    d.hatch((37, 75), (60, 107), (218, 107), (219, 114), (60, 114),
+            (37, 81), spacing=2.65, slope=1.39, ink=INK, width=.75)
+    d.line((37, 75), (178, 75), (218, 107), (60, 107), close=True, width=1.55)
+    d.line((60, 107), (60, 114), (219, 114), (218, 107), width=1.3)
+    d.line((37, 75), (37, 81), (60, 114), width=1.2)
     for x, y in ((48, 45), (88, 45), (128, 45), (168, 45)):
-        d.arc(x, y, 12, 10, 182, 358, INK, 1.1)
-        d.line((x - 12, y), (x - 12, y + 13), (x + 12, y + 13), (x + 12, y), width=1.1)
-        d.line((x + 2, 76), (x + 2, 70), (x + 6, 65), ink=RUST)
-        d.line((x - 8, 83), (x + 7, 83), ink=RULE, width=.85)
-        d.dot(x + 6, 65, 1.3, RUST)
+        d.hatch((x - 12, y), (x - 9, y - 7), (x - 5, y - 9),
+                (x - 1, y - 9), (x + 4, y + 11), (x - 12, y + 13),
+                spacing=2.2, slope=.65, width=.65)
+        d.arc(x, y, 12, 10, 180, 360, INK, 1.38)
+        d.arc(x, y + 2, 9.5, 9.5, 205, 336, HALF_INK, .78)
+        d.line((x - 12, y), (x - 12, y + 13), (x + 12, y + 13), (x + 12, y), width=1.25)
+        d.line((x + 2, 76), (x + 2, 70), (x + 6, 65), width=1.25)
+        d.line((x - 8, 82), (x + 7, 83), ink=INK, width=.85)
+        d.dot(x + 6, 65, 1.3)
     draft = ((74, 93), (163, 93), (190, 166), (83, 166))
     d.paper(*draft)
-    d.line(*draft, close=True, width=1.35)
-    d.line((81, 167), (192, 168), (166, 96), ink=RULE, width=.9)
-    for y, end in ((112, 151), (119, 166), (133, 173), (141, 166), (153, 178)):
-        d.line((85 + (y - 108) / 10, y), (end, y), ink=INK, width=.9)
-    d.line((86, 132), (177, 134), ink=RUST, width=1.35)
-    d.line((110, 105), (131, 105), ink=TEAL, width=1.1)
+    d.hatch((75, 94), (85, 95), (92, 159), (174, 160), (187, 166),
+            (83, 166), spacing=3, slope=-.64, ink=RULE, width=.62)
+    d.line(*draft, close=True, width=1.45)
+    d.line((83, 169), (194, 169), (166, 96), ink=HALF_INK, width=.9)
+    for y, end in ((112, 151), (117, 166), (125, 159), (133, 173),
+                   (140, 166), (147, 171), (153, 177)):
+        d.line((89 + (y - 108) / 10, y), (end, y), ink=HALF_INK, width=.75)
+    d.line((89, 131), (173, 135), ink=INK, width=1.5)
+    d.line((110, 104), (139, 104), ink=INK, width=1.1)
     d.line((175, 151), (202, 118), (206, 121), (179, 154), (173, 157),
-           (175, 151), ink=TEAL, width=1)
-    d.line((27, 125), (48, 153), (66, 153), ink=RULE, width=.7)
-    d.line((20, 126), (44, 158), (70, 158), ink=RULE, width=.7)
+           (175, 151), ink=INK, width=1.05)
+    d.line((177, 152), (204, 120), ink=HALF_INK, width=.75)
 
 
 def lead_stories(page):
-    page.rect(468, 126, 1, 364, RULE)
-    page.rect(736, 126, 1, 364, RULE)
-    page.text(32, 138, "1  /  EUROPEAN SECURITY", "bold12", RUST, tracking=1)
-    typeset(page, 32, 184, ("Russian missiles", "fall in Poland"),
-            "display55", 420, 46, scale=.92)
+    page.rect(468, 124, .85, 370, HALF_INK)
+    page.rect(736, 124, .85, 370, HALF_INK)
+    page.smallcaps(32, 138, "1  /  European Security", tracking=.85)
+    typeset(page, 32, 184, ("RUSSIAN MISSILES", "FALL IN POLAND"),
+            "display55", 420, 46, scale=.96, squeeze=.765)
     paragraph(page, 32, 255,
               "NATO raises concern over an airspace violation after Russian "
               "missiles land on Polish territory.", 418, limit=2)
-    page.text(32, 290, "AP  /  08:31 UTC", "bold10", RUST, tracking=.65)
+    page.smallcaps(32, 290, "AP  /  08:31 UTC")
     poland(Drawing(page, 32, 308))
 
-    page.text(488, 138, "2  /  EASTERN INDIA", "bold12", RUST, tracking=1)
+    page.smallcaps(488, 138, "2  /  Eastern India", tracking=.85)
     cyclone(Drawing(page, 488, 148))
-    typeset(page, 488, 352, ("Cyclone Akvan", "makes landfall"), "display27", 232, 29)
+    typeset(page, 488, 352, ("CYCLONE AKVAN", "MAKES LANDFALL"),
+            "display27", 232, 29, squeeze=.865)
     paragraph(page, 488, 410,
               "The storm comes ashore in Odisha. Evacuations reach 372,000 people.",
               220)
-    page.text(488, 477, "IMD  /  DOWN TO EARTH", "bold10", RUST, tracking=.45)
+    page.smallcaps(488, 477, "IMD  /  Down To Earth")
 
-    page.text(752, 138, "3  /  CLIMATE TALKS", "bold12", RUST, tracking=1)
+    page.smallcaps(752, 138, "3  /  Climate Talks", tracking=.85)
     conference(Drawing(page, 752, 148))
-    typeset(page, 752, 352, ("COP31 talks", "run overtime"), "display27", 232, 29)
+    typeset(page, 752, 352, ("COP31 TALKS", "RUN OVERTIME"),
+            "display27", 232, 29, squeeze=.88)
     paragraph(page, 752, 410,
               "Negotiations continue past the deadline after fossil fuel phase-out "
-              "language falls out of the draft.", 232)
-    page.text(752, 477, "THE GUARDIAN  /  18:56 UTC", "bold10", RUST, tracking=.45)
+              "language falls out of the draft.", 232, limit=4)
+    page.smallcaps(752, 477, "The Guardian  /  18:56 UTC")
 
 
 def trade(d):
     # A short shipping document sits above the deck of a channel ferry.
+    d.hatch((4, 33), (60, 33), (51, 44), (13, 44),
+            spacing=2.6, slope=-.85, ink=INK, width=.75)
+    d.hatch((16, 3), (22, 3), (23, 28), (16, 28),
+            spacing=2.25, slope=.45, ink=HALF_INK)
     d.line((15, 1), (43, 1), (49, 8), (49, 30), (15, 30), close=True)
     d.line((43, 1), (43, 8), (49, 8))
     for y in (9, 15, 21):
-        d.line((21, y), (36, y), ink=RUST, width=.85)
-    d.line((3, 32), (61, 32), (51, 44), (13, 44), close=True, width=1.25)
-    d.line((37, 38), (47, 38), ink=TEAL)
-    d.line((2, 50), (17, 48), (31, 51), (45, 48), (59, 50), ink=TEAL)
+        d.line((25, y), (41, y), ink=HALF_INK, width=.85)
+    d.line((3, 32), (61, 32), (51, 44), (13, 44), close=True, width=1.55)
+    d.line((9, 36), (55, 36), ink=INK, width=.78)
+    d.line((2, 50), (17, 48), (31, 51), (45, 48), (59, 50), ink=HALF_INK)
+    d.line((13, 54), (27, 53), (34, 54), (49, 53), ink=RULE, width=.65)
 
 
 def capitol(d):
-    d.arc(31, 24, 15, 14, 186, 354, INK, 1.2)
+    for width in (5, 9, 13):
+        d.arc(31, 24, width, 13, 185, 355, HALF_INK, .7)
+    d.arc(31, 24, 15, 14, 180, 360, INK, 1.55)
     d.line((13, 25), (49, 25), (49, 30), (13, 30), close=True)
     d.line((28, 11), (28, 5), (34, 5), (34, 11))
     d.line((31, 5), (31, 1))
     for x in (18, 25, 32, 39, 46):
-        d.line((x, 31), (x, 46), width=1.15)
-    for y in (47, 51):
-        d.line((6, y), (56, y), ink=RUST, width=1)
-    d.line((8, 38), (14, 38), ink=RULE)
-    d.line((50, 38), (56, 38), ink=RULE)
+        d.line((x, 31), (x, 46), width=1.55)
+        d.hatch((x + 1, 32), (x + 4, 33), (x + 4, 46), (x + 1, 46),
+                spacing=1.9, slope=-1, width=.58)
+    d.line((11, 47), (51, 47), width=1.4)
+    d.line((6, 51), (56, 51), width=.85)
+    d.line((4, 54), (57, 54), ink=RULE, width=.65)
 
 
 def crossing(d):
+    d.hatch((15, 8), (19, 8), (19, 44), (15, 44), spacing=2.4, slope=.8, width=.64)
     d.line((15, 7), (15, 45), (20, 45), (20, 7), close=True)
-    d.line((15, 17), (55, 17), (55, 22), (20, 22), ink=RUST)
-    for x in (24, 33, 42, 51):
-        d.line((x, 21), (x + 2, 18), ink=RUST, width=.8)
-    d.line((3, 39), (10, 30), (14, 27), ink=TEAL)
-    d.line((54, 39), (47, 30), (42, 26), ink=TEAL)
-    d.line((2, 48), (59, 48), ink=RULE, width=.85)
+    d.line((20, 17), (55, 17), (55, 22), (20, 22), width=1.2)
+    for x in (23, 31, 39, 47):
+        d.hatch((x, 22), (x + 3, 17), (x + 7, 17), (x + 4, 22),
+                spacing=1.7, slope=.44, ink=INK, width=.77)
+    d.line((2, 45), (10, 32), (14, 27), ink=HALF_INK, width=1.15)
+    d.line((59, 45), (49, 33), (42, 26), ink=HALF_INK, width=1.15)
+    d.line((2, 48), (59, 48), ink=RULE, width=.8)
+    d.line((33, 32), (34, 36), ink=INK, width=.55)
+    d.line((35, 40), (37, 46), ink=INK, width=.72)
 
 
 def protest(d):
+    d.hatch((7, 9), (12, 8), (15, 23), (30, 21), (34, 22), (11, 27),
+            spacing=2.25, slope=-.8, width=.64)
     d.line((7, 9), (30, 4), (34, 22), (11, 27), close=True)
-    d.line((20, 25), (24, 47))
-    d.line((13, 15), (27, 12), ink=RUST, width=.9)
-    d.line((14, 20), (24, 18), ink=RUST, width=.9)
+    d.line((20, 25), (24, 47), width=1.65)
+    d.line((14, 15), (27, 12), width=1.03)
+    d.line((15, 20), (25, 18), ink=HALF_INK, width=.9)
     d.line((44, 44), (39, 38), (40, 31), (45, 25), (45, 32),
            (48, 35), (51, 30), (50, 24), (54, 27), (57, 35),
-           (56, 42), (51, 46), (45, 46), ink=RUST, width=1.1)
+           (56, 42), (51, 46), (45, 46), width=1.26)
+    d.hatch((44, 44), (40, 38), (44, 31), (45, 39), (51, 38),
+            (55, 34), (55, 41), (51, 46), spacing=2, slope=-.8, width=.65)
     d.line((34, 49), (58, 49), ink=RULE, width=.8)
 
 
 def subpoena(d):
+    d.hatch((7, 5), (13, 6), (13, 43), (36, 43), (36, 47), (6, 47),
+            spacing=2.55, slope=-.62, width=.63)
     d.line((6, 5), (39, 5), (46, 12), (46, 47), (6, 47), close=True)
     d.line((39, 5), (39, 12), (46, 12))
-    for y, length in ((13, 13), (20, 22), (27, 17), (34, 16)):
-        d.line((12, y), (12 + length, y), ink=RULE, width=.9)
-    d.line((37, 29), (58, 29), (58, 47), (37, 47), close=True, ink=TEAL)
+    for y, length in ((13, 13), (19, 22), (25, 17), (31, 16), (37, 12)):
+        d.line((16, y), (16 + length, y), ink=HALF_INK, width=.9)
+    chip = ((37, 29), (58, 29), (58, 47), (37, 47))
+    d.paper(*chip)
+    d.hatch(*chip, spacing=2.4, slope=-.75, width=.65)
+    d.line(*chip, close=True, width=1.2)
     for x in (40, 45, 50, 55):
-        d.line((x, 47), (x, 51), ink=TEAL, width=.95)
-        d.line((x, 25), (x, 29), ink=TEAL, width=.95)
-    d.line((42, 33), (52, 33), (52, 43), (42, 43), close=True, ink=TEAL, width=.8)
+        d.line((x, 47), (x, 51), width=.95)
+        d.line((x, 25), (x, 29), width=.95)
+    d.line((42, 33), (52, 33), (52, 43), (42, 43), close=True, width=.8)
 
 
 def cyber(d):
+    d.hatch((11, 14), (23, 11), (31, 4), (32, 15), (17, 18),
+            (20, 33), (30, 43), (31, 49), (18, 41), (12, 32),
+            spacing=2.3, slope=-.85, width=.75)
     d.line((31, 4), (39, 10), (52, 13), (50, 32),
-           (44, 41), (31, 49), (18, 41), (12, 32), (10, 13), (23, 10), close=True)
+           (44, 41), (31, 49), (18, 41), (12, 32), (10, 13), (23, 10),
+           close=True, width=1.47)
+    d.line((42, 15), (48, 17), (46, 31), (40, 39), (34, 43), ink=HALF_INK, width=.74)
     for x, y in ((21, 20), (41, 21), (31, 36)):
-        d.line((x, y), (31, 27), ink=TEAL, width=.9)
-        d.dot(x, y, 1.65, TEAL)
-    d.dot(31, 27, 1.65, TEAL)
+        d.line((x, y), (31, 27), width=.9)
+        d.dot(x, y, 1.45)
+    d.dot(31, 27, 1.65)
 
 
 def controller(d):
+    d.hatch((18, 15), (30, 15), (26, 19), (15, 30), (12, 40), (8, 44),
+            (5, 40), (6, 31), (12, 19), spacing=2.4, slope=.62, width=.77)
+    d.hatch((45, 15), (52, 18), (57, 29), (59, 40), (55, 46), (49, 45),
+            (42, 38), (49, 38), (54, 39), (53, 31), (49, 20),
+            spacing=2.3, slope=-.73, width=.64)
     d.line((18, 14), (46, 14), (52, 18), (57, 29), (59, 40),
            (55, 46), (50, 46), (41, 38), (23, 38), (13, 46),
-           (8, 45), (5, 40), (6, 31), (12, 19), (18, 14), width=1.25)
-    d.line((19, 21), (19, 32), ink=TEAL)
-    d.line((14, 27), (24, 27), ink=TEAL)
+           (8, 45), (5, 40), (6, 31), (12, 19), (18, 14), width=1.41)
+    d.line((20, 21), (20, 32), width=1.35)
+    d.line((15, 27), (25, 27), width=1.35)
     for x, y in ((46, 21), (51, 27), (46, 32), (41, 27)):
-        d.arc(x, y, 1.55, 1.55, 0, 360, RUST, .8)
+        d.arc(x, y, 1.55, 1.55, 0, 360, INK, .8)
     d.line((30, 15), (30, 8), (36, 4), (48, 4), ink=RULE, width=.85)
 
 
 def living_costs(d):
-    d.line((11, 18), (50, 18), (55, 46), (5, 46), close=True)
-    d.arc(30, 18, 10, 13, 180, 360, INK, 1)
-    d.line((16, 40), (24, 33), (31, 36), (42, 26), ink=RUST, width=1.2)
-    d.line((37, 26), (42, 26), (42, 31), ink=RUST, width=1.2)
+    d.hatch((11, 18), (17, 18), (12, 42), (51, 42), (55, 46), (5, 46),
+            spacing=2.7, slope=-.72, width=.73)
+    d.line((11, 18), (50, 18), (55, 46), (5, 46), close=True, width=1.28)
+    d.arc(30, 18, 10, 13, 180, 360, INK, 1.33)
+    d.arc(30, 18, 8, 11, 195, 345, HALF_INK, .59)
+    d.line((16, 40), (24, 33), (31, 36), (42, 26), width=1.22)
+    d.line((37, 26), (42, 26), (42, 31), width=1.15)
 
 
 DESK = (
@@ -548,18 +777,18 @@ DESK = (
 
 
 def news_desk(page):
-    rule(page, 503, ink=INK, weight=1.5)
-    page.text(32, 526, "THE NEWS DESK", "bold13", RUST, tracking=1.4)
+    double_rule(page, 502)
+    page.smallcaps(32, 525, "The News Desk", tracking=1.1)
     for col in range(1, 4):
-        page.rect(20 + col * 244, 540, 1, 182, RULE)
+        page.rect(20 + col * 244, 536, .8, 190, HALF_INK)
     for i, (draw, heading, copy, _) in enumerate(DESK):
         x, y = 32 + i % 4 * 244, 545 + i // 4 * 97
-        page.text(x, y + 7, f"{i + 4:02d}", "bold10", RUST, tracking=.5)
-        typeset(page, x, y + 30, heading, "display22", 160, 20, scale=.89)
+        page.smallcaps(x, y + 6, f"{i + 4:02d}")
+        typeset(page, x, y + 31, heading, "display22", 160, 20, scale=.95, squeeze=.90)
         draw(Drawing(page, x + 161, y + 4))
-        typeset(page, x, y + 69, copy, "body12", 223, 14)
+        typeset(page, x, y + 69, copy, "news12", 223, 14)
         if i < 4:
-            rule(page, y + 88, x, 228, weight=.65)
+            rule(page, y + 88, x, 228, ink=HALF_INK, weight=.67)
 
 
 MARKETS = (
@@ -571,13 +800,13 @@ MARKETS = (
 
 
 def markets(page):
-    rule(page, 735, ink=INK, weight=1.4)
-    page.text(32, 759, "MARKETS", "bold13", RUST, tracking=.9)
-    page.text(32, 774, "20 NOV  /  DAILY", "bold10", INK, tracking=.55)
+    double_rule(page, 734)
+    page.smallcaps(32, 757, "Markets", tracking=.9)
+    page.smallcaps(32, 773, "20 Nov  /  Daily")
     for i, (symbol, value) in enumerate(MARKETS):
         x = 194 + i * 206
-        page.rect(x - 14, 747, .65, 31, RULE)
-        page.text(x, 756, symbol, "bold10", TEAL, tracking=.8)
+        page.rect(x - 14, 745, .65, 34, HALF_INK)
+        page.smallcaps(x, 755, symbol.title().replace("Cmt", "CMT"), tracking=.75)
         page.text(x, 778, value, "display22")
     rule(page, 789, ink=INK, weight=1.4)
 
@@ -597,23 +826,28 @@ BRIEFS = (
 
 
 def news_briefs(page):
-    page.text(460, 808, "IN BRIEF", "bold13", RUST, tracking=1.1)
-    page.text(992, 808, "20 NOVEMBER  /  UTC", "bold10", INK, align="right", tracking=.7)
+    page.rect(447, 796, .8, 151, HALF_INK)
+    page.rect(719, 816, .65, 131, RULE)
+    page.smallcaps(460, 808, "In Brief", tracking=.9)
+    page.smallcaps(992, 808, "20 November  /  UTC", align="right", tracking=.7)
     for i, (place, copy, _) in enumerate(BRIEFS):
         x, y = 460 + i // 5 * 272, 827 + i % 5 * 26
-        page.text(x, y, f"{i + 12}  {place}", "bold10", TEAL, tracking=.5)
-        typeset(page, x, y + 13, (copy,), "body12", 260, 0)
+        heading = place.title()
+        page.smallcaps(x, y, f"{i + 12}  {heading}", tracking=.5)
+        typeset(page, x, y + 13, (copy,), "news12", 258, 0, squeeze=.93)
 
 
-def number_dot(page, x, y, number, color):
-    page.circle(x, y, 7.3, PAPER)
-    page.circle(x, y, 6.6, color)
-    page.text(x, y + 3.2, str(number), "bold10", PAPER, align="center")
+def map_number(page, x, y, number):
+    font = "bold13" if number <= 3 else "bold10"
+    text = str(number)
+    width = text_width(text, font)
+    page.rect(x - width / 2 - 1.6, y - 6, width + 3.2, 11, PAPER)
+    page.text(x, y + 3.2, text, font, align="center")
 
 
 def world_map(page):
-    page.text(32, 808, "WHERE THE NEWS HAPPENED", "bold13", RUST, tracking=.85)
-    page.text(435, 808, "APPROXIMATE LOCATIONS", "bold10", INK, align="right", tracking=.4)
+    page.smallcaps(32, 808, "Where the News Happened", tracking=.85)
+    page.smallcaps(435, 808, "Approximate Locations", align="right", tracking=.4)
     box = (44, 827, 379, 120)
     bounds = (-170, -58, 180, 83)
     coastlines(page, box, bounds)
@@ -636,26 +870,26 @@ def world_map(page):
         else:
             raise ValueError(f"No room for map dot {number}")
         if dx or dy:
-            page.line(ox, oy, x, y, RULE, .85)
+            page.line(ox, oy, x, y, HALF_INK, .76)
             page.circle(ox, oy, 1.25, INK)
         dots.append((x, y, number))
     for x, y, number in dots:
-        number_dot(page, x, y, number, RUST if number <= 3 else TEAL)
+        map_number(page, x, y, number)
 
 
 def footer(page):
-    rule(page, 956, ink=INK, weight=1.4)
-    page.text(32, 971, "DATE CHECK", "bold12", RUST, tracking=.8)
-    typeset(page, 120, 971, (
+    double_rule(page, 954)
+    page.smallcaps(32, 973, "Date Check", tracking=.75)
+    typeset(page, 120, 973, (
         "Every item is an event, first report or new development on 20 November 2026 UTC. The Los Angeles forecast extends into that day.",
-    ), "body12", 872, 0)
+    ), "news12", 872, 0)
     typeset(page, 32, 985, (
         "Earlier items left out include PIF tower damage, the Crimea bridge attack, the Kyiv embassy strikes, the Berlin talks, Japan’s CPI, Brazil’s dollar sale, the Haiti raid,",
         "the Greenland pact, IEA warnings, Yongbyon expansion, the Pakistan raids, the Korean retrial, Somalia’s expulsion order and the athletics ban.",
-    ), "body12", 960, 13)
+    ), "news12", 960, 13, squeeze=.91)
     typeset(page, 32, 1011, (
         "Sources: AP, The Guardian, IMD, Down To Earth, UK and Estonian governments, UCA News, LA mayor, Anthropic, Al Jazeera, 1TV, Montsame, Nikkei and U.S. Treasury.",
-    ), "body12", 960, 0, ink=TEAL)
+    ), "news12", 960, 0, squeeze=.91)
 
 
 def main():
