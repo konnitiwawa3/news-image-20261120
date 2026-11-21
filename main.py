@@ -608,34 +608,34 @@ def conference(d):
 
 
 def lead_stories(page):
-    page.rect(468, 124, .85, 370, HALF_INK)
-    page.rect(736, 124, .85, 370, HALF_INK)
+    page.rect(468, 124, .85, 334, HALF_INK)
+    page.rect(736, 124, .85, 334, HALF_INK)
     page.smallcaps(32, 138, "1  /  European Security", tracking=.85)
     typeset(page, 32, 184, ("RUSSIAN MISSILES", "FALL IN POLAND"),
             "display55", 420, 46, scale=.96, squeeze=.765)
-    paragraph(page, 32, 255,
+    paragraph(page, 32, 247,
               "NATO raises concern over an airspace violation after Russian "
               "missiles land on Polish territory.", 418, limit=2)
-    page.smallcaps(32, 290, "AP  /  08:31 UTC")
-    poland(Drawing(page, 32, 308))
+    page.smallcaps(32, 281, "AP  /  08:31 UTC")
+    poland(Drawing(page, 32, 283))
 
     page.smallcaps(488, 138, "2  /  Eastern India", tracking=.85)
-    cyclone(Drawing(page, 488, 148))
-    typeset(page, 488, 352, ("CYCLONE AKVAN", "MAKES LANDFALL"),
-            "display27", 232, 29, squeeze=.865)
-    paragraph(page, 488, 410,
+    cyclone(Drawing(page, 488, 145))
+    typeset(page, 488, 346, ("CYCLONE AKVAN", "MAKES LANDFALL"),
+            "display27", 235, 30, scale=1.06, squeeze=.83)
+    paragraph(page, 488, 398,
               "The storm comes ashore in Odisha. Evacuations reach 372,000 people.",
               220)
-    page.smallcaps(488, 477, "IMD  /  Down To Earth")
+    page.smallcaps(488, 457, "IMD  /  Down To Earth")
 
     page.smallcaps(752, 138, "3  /  Climate Talks", tracking=.85)
-    conference(Drawing(page, 752, 148))
-    typeset(page, 752, 352, ("COP31 TALKS", "RUN OVERTIME"),
-            "display27", 232, 29, squeeze=.88)
-    paragraph(page, 752, 410,
+    conference(Drawing(page, 752, 145))
+    typeset(page, 752, 346, ("COP31 TALKS", "RUN OVERTIME"),
+            "display27", 240, 30, scale=1.06, squeeze=.90)
+    paragraph(page, 752, 398,
               "Negotiations continue past the deadline after fossil fuel phase-out "
-              "language falls out of the draft.", 232, limit=4)
-    page.smallcaps(752, 477, "The Guardian  /  18:56 UTC")
+              "language falls out of the draft.", 240, leading=16, limit=4)
+    page.smallcaps(752, 457, "The Guardian  /  18:56 UTC")
 
 
 def trade(d):
@@ -758,37 +758,55 @@ def living_costs(d):
 
 DESK = (
     (trade, ("UK and EU", "strike a deal"),
-     ("Agreement covers food trade", "and youth mobility."), (-0.1, 51.5)),
-    (capitol, ("U.S. Senate", "passes energy bill"),
-     ("Permitting legislation", "passes 62 to 33."), (-77, 39)),
+     ("Deal covers food trade and youth mobility.",), (-0.1, 51.5)),
+    (capitol, ("U.S. Senate passes", "energy permitting bill"),
+     ("The bill passes 62 to 33.",), (-77, 39)),
     (crossing, ("Estonia to halt", "road crossings"),
-     ("Crossings with Russia stop", "from 1 December."), (28, 59)),
-    (protest, ("Bangladesh hit", "by arson, protests"),
-     ("Unrest ahead of Hasina’s", "planned return."), (90.4, 23.8)),
-    (subpoena, ("California AG", "issues subpoena"),
-     ("State attorney general targets", "Nvidia in an inquiry."), (-121.5, 38.6)),
-    (cyber, ("U.S. names new", "cyber chief"),
-     ("White House names a successor", "for the cybersecurity post."), (-77, 39)),
-    (controller, ("GTA VI sales", "hit about $3.79bn"),
-     ("Reported for the game’s", "first day on sale."), None),
-    (living_costs, ("Youth protest", "living costs"),
-     ("Action in Europe. Organizers", "had planned for over 25 countries."), (10, 43)),
+     ("Russian border traffic to stop on 1 December.",), (28, 59)),
+    (protest, ("Protests and arson", "in Bangladesh"),
+     ("Unrest before Hasina’s planned return.",), (90.4, 23.8)),
+    (subpoena, ("California AG", "subpoenas Nvidia"),
+     ("The state seeks records in an inquiry.",), (-121.5, 38.6)),
+    (cyber, ("U.S. names cyber chief",),
+     ("White House names a successor.",), (-77, 39)),
+    (controller, ("GTA VI hits $3.79bn",),
+     ("Reported first-day estimate.",), None),
+    (living_costs, ("Europe’s youth", "protest living costs"),
+     ("Protests reported across Europe.", "Plans covered over 25 countries."), (10, 43)),
+)
+
+# Each column has its own breakpoints. Article numbers still key to the map.
+DESK_COLUMNS = (
+    (32, 322, ((4, 501, "large"), (5, 608, "large"))),
+    (382, 304, ((6, 501, "medium"), (8, 585, "medium"), (9, 675, "small"))),
+    (718, 274, ((7, 501, "medium"), (11, 579, "medium"), (10, 675, "small"))),
 )
 
 
+def desk_story(page, number, x, top, width, size):
+    draw, heading, copy, _ = DESK[number - 4]
+    rule(page, top, x, width, ink=HALF_INK, weight=.7)
+    page.smallcaps(x, top + 14, f"{number:02d}")
+    if size == "large":
+        typeset(page, x, top + 43, heading, "display27", width - 56, 28, squeeze=.98)
+        typeset(page, x, top + 93, copy, "news14", width, 16)
+        draw(Drawing(page, x + width - 62, top + 24))
+    elif size == "medium":
+        typeset(page, x, top + 36, heading, "display22", width - 61, 21, scale=1.04)
+        typeset(page, x, top + 73, copy, "news12", width, 14)
+        draw(Drawing(page, x + width - 60, top + 12))
+    else:
+        typeset(page, x, top + 32, heading, "display22", width - 62, 0)
+        typeset(page, x, top + 49, copy, "news12", width - 62, 0)
+        draw(Drawing(page, x + width - 60, top + 2))
+
+
 def news_desk(page):
-    double_rule(page, 502)
-    page.smallcaps(32, 525, "The News Desk", tracking=1.1)
-    for col in range(1, 4):
-        page.rect(20 + col * 244, 536, .8, 190, HALF_INK)
-    for i, (draw, heading, copy, _) in enumerate(DESK):
-        x, y = 32 + i % 4 * 244, 545 + i // 4 * 97
-        page.smallcaps(x, y + 6, f"{i + 4:02d}")
-        typeset(page, x, y + 31, heading, "display22", 160, 20, scale=.95, squeeze=.90)
-        draw(Drawing(page, x + 161, y + 4))
-        typeset(page, x, y + 69, copy, "news12", 223, 14)
-        if i < 4:
-            rule(page, y + 88, x, 228, ink=HALF_INK, weight=.67)
+    double_rule(page, 466)
+    page.smallcaps(32, 490, "The News Desk", tracking=1.1)
+    for x, width, stories in DESK_COLUMNS:
+        for number, top, size in stories:
+            desk_story(page, number, x, top, width, size)
 
 
 MARKETS = (
@@ -800,41 +818,39 @@ MARKETS = (
 
 
 def markets(page):
-    double_rule(page, 734)
+    rule(page, 735, ink=INK, weight=1.4)
     page.smallcaps(32, 757, "Markets", tracking=.9)
-    page.smallcaps(32, 773, "20 Nov  /  Daily")
-    for i, (symbol, value) in enumerate(MARKETS):
-        x = 194 + i * 206
-        page.rect(x - 14, 745, .65, 34, HALF_INK)
-        page.smallcaps(x, 755, symbol.title().replace("Cmt", "CMT"), tracking=.75)
-        page.text(x, 778, value, "display22")
-    rule(page, 789, ink=INK, weight=1.4)
+    page.smallcaps(32, 774, "20 Nov  /  Daily")
+    for x, (symbol, value) in zip((184, 374, 564, 834), MARKETS):
+        page.rect(x - 13, 744, .65, 38, HALF_INK)
+        page.smallcaps(x, 750, symbol, tracking=.7)
+        page.text(x, 780, value, "display27", scale=1.14)
+    rule(page, 790, ink=INK, weight=1.2)
 
 
 BRIEFS = (
     ("LOS ANGELES  /  FORECAST", "Heavy rain and landslide alert into Friday.", (-118.25, 34)),
     ("SHENZHEN", "Nuclear non-proliferation talks agreed.", (114.1, 22.5)),
     ("MYANMAR", "Government rejects the ICJ ruling.", (96.1, 19.7)),
-    ("ANTHROPIC", "IPO closes; total with extra shares disclosed.", (-122.4, 37.8)),
+    ("ANTHROPIC", "IPO closes. Total incl. extra shares posted.", (-122.4, 37.8)),
     ("IRAN", "Trump raises the possibility of a deal.", (51.4, 35.7)),
     ("MRIMA HILL, KENYA", "Preferred bidder gains right to negotiate.", (39.25, -4.4)),
     ("SENEGAL", "Four bodies recovered after capsizing.", (-17.5, 14.7)),
     ("UNITED NATIONS", "Ninth ballot for secretary-general stalls.", (-74, 40.7)),
-    ("GEORGIA", "Blast search ends; death toll reaches six.", (44.8, 41.7)),
+    ("GEORGIA", "Blast search ends with six dead.", (44.8, 41.7)),
     ("MONGOLIA", "The national seal is handed over.", (106.9, 47.9)),
 )
 
 
 def news_briefs(page):
-    page.rect(447, 796, .8, 151, HALF_INK)
-    page.rect(719, 816, .65, 131, RULE)
-    page.smallcaps(460, 808, "In Brief", tracking=.9)
-    page.smallcaps(992, 808, "20 November  /  UTC", align="right", tracking=.7)
+    page.smallcaps(32, 807, "In Brief", tracking=1)
+    page.smallcaps(750, 807, "20 November  /  UTC", align="right", tracking=.7)
+    rule(page, 814, width=718, weight=.65)
+    page.rect(384, 821, .65, 144, RULE)
     for i, (place, copy, _) in enumerate(BRIEFS):
-        x, y = 460 + i // 5 * 272, 827 + i % 5 * 26
-        heading = place.title()
-        page.smallcaps(x, y, f"{i + 12}  {heading}", tracking=.5)
-        typeset(page, x, y + 13, (copy,), "news12", 258, 0, squeeze=.93)
+        x, y = 32 + i // 5 * 366, 829 + i % 5 * 31
+        page.smallcaps(x, y, f"{i + 12}  {place.title()}", tracking=.65)
+        typeset(page, x, y + 16, (copy,), "news14", 346, 0, scale=1.07)
 
 
 def map_number(page, x, y, number):
@@ -846,16 +862,16 @@ def map_number(page, x, y, number):
 
 
 def world_map(page):
-    page.smallcaps(32, 808, "Where the News Happened", tracking=.85)
-    page.smallcaps(435, 808, "Approximate Locations", align="right", tracking=.4)
-    box = (44, 827, 379, 120)
+    page.smallcaps(770, 807, "News Map", tracking=.85)
+    rule(page, 814, 770, 222, weight=.65)
+    box = (773, 835, 214, 116)
     bounds = (-170, -58, 180, 83)
     coastlines(page, box, bounds)
     locations = [(21, 52), (85, 20), (30.7, 36.9)]
     locations += [coords for _, _, _, coords in DESK]
     locations += [coords for _, _, coords in BRIEFS]
     dots = []
-    shifts = range(-39, 40, 6)
+    shifts = range(-42, 43, 6)
     offsets = sorted(((0, 0), *((dx, dy) for dx in shifts for dy in shifts)),
                      key=lambda p: (p[0] ** 2 + p[1] ** 2, abs(p[1]), p))
     for number, coords in enumerate(locations, 1):
@@ -864,8 +880,8 @@ def world_map(page):
         ox, oy = project(*coords, box, bounds)
         for dx, dy in offsets:
             x, y = ox + dx, oy + dy
-            if 41 <= x <= 429 and 822 <= y <= 950 and all(
-                    math.hypot(x - px, y - py) >= 16 for px, py, _ in dots):
+            if 775 <= x <= 986 and 825 <= y <= 954 and all(
+                    math.hypot(x - px, y - py) >= 14 for px, py, _ in dots):
                 break
         else:
             raise ValueError(f"No room for map dot {number}")
@@ -875,18 +891,15 @@ def world_map(page):
         dots.append((x, y, number))
     for x, y, number in dots:
         map_number(page, x, y, number)
+    page.smallcaps(992, 966, "Approximate Locations", align="right", tracking=.4)
 
 
 def footer(page):
-    double_rule(page, 954)
-    page.smallcaps(32, 973, "Date Check", tracking=.75)
-    typeset(page, 120, 973, (
-        "Every item is an event, first report or new development on 20 November 2026 UTC. The Los Angeles forecast extends into that day.",
-    ), "news12", 872, 0)
-    typeset(page, 32, 985, (
-        "Earlier items left out include PIF tower damage, the Crimea bridge attack, the Kyiv embassy strikes, the Berlin talks, Japan’s CPI, Brazil’s dollar sale, the Haiti raid,",
-        "the Greenland pact, IEA warnings, Yongbyon expansion, the Pakistan raids, the Korean retrial, Somalia’s expulsion order and the athletics ban.",
-    ), "news12", 960, 13, squeeze=.91)
+    double_rule(page, 973)
+    page.smallcaps(32, 992, "Date Check", tracking=.75)
+    typeset(page, 125, 992, (
+        "Events, first reports and new developments are dated 20 November 2026 UTC. The Los Angeles forecast extends into that day.",
+    ), "news12", 867, 0)
     typeset(page, 32, 1011, (
         "Sources: AP, The Guardian, IMD, Down To Earth, UK and Estonian governments, UCA News, LA mayor, Anthropic, Al Jazeera, 1TV, Montsame, Nikkei and U.S. Treasury.",
     ), "news12", 960, 0, squeeze=.91)
