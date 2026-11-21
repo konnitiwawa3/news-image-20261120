@@ -12,40 +12,27 @@ import zlib
 
 SIZE = 1024
 SCALE = 3
-# Astryx Neutral light palette. Edges and type are supersampled on the same grid.
-PALETTE = (
-    (255, 255, 255), (17, 17, 17), (71, 71, 71), (212, 212, 212),
-    (241, 241, 241), (0, 57, 120), (185, 215, 255), (138, 0, 17),
-    (255, 196, 190), (226, 226, 226),
+# Astryx Stone light tones. The national flags use their own identifying colors.
+COLORS = (
+    'fdf0d3', '25252a', '525259', 'd7b18d', 'ffffff', 'ffeddd',
+    '17263a', '293c56', '96adcb', 'd3e4fc', '1d414a', '8ab3be', 'cbe9f0',
+    '112b24', '224339', '40675c', '91b4a8', 'd4e8e1', '3c5e37', '9fc798',
+    '603c37', 'caa099', 'fbdad4', '6a4a31', '9c7d5f', 'f2cdaa', 'dbc790',
+    'f00000', 'ffde00', 'b31942', '0a3161', '0039a6', 'd52b1e',
 )
-PAPER, INK, MUTED, RULE, WASH, BLUE, PALE_BLUE, RED, PALE_RED, LAND = range(len(PALETTE))
+PALETTE = tuple(tuple(bytes.fromhex(color)) for color in COLORS)
+(PAPER, INK, MUTED, RULE, WHITE, CREAM, NAVY, BLUE, SLATE, SKY, DEEP_WATER,
+ SEA, PALE_WATER, NIGHT_GREEN, FOREST, TEAL, SAGE, MINT, GREEN, LEAF,
+ RED, ROSE, BLUSH, BROWN, WOOD, SKIN, SAND, CHINA_RED, CHINA_GOLD,
+ US_RED, US_BLUE, RUSSIA_BLUE, RUSSIA_RED) = range(len(PALETTE))
 
-LEADS = (
-    ("SHENZHEN, CHINA", "TRUMP, XI AND PUTIN HOLD\nFIRST THREE-WAY SUMMIT",
-     "The leaders of the US, China and Russia met in Shenzhen and signed a four-point peace declaration covering nuclear risk, UN reform, energy stability and the ICC. Europe and Ukraine were not at the table."),
-    ("THE HAGUE", "WORLD COURT RULES\nMYANMAR COMMITTED GENOCIDE",
-     "The ICJ ruled 9-6 that Myanmar's 2017 campaign against the Rohingya was genocide, the court's first such finding against a state. More than 1.3 million Rohingya remain displaced."),
-)
-CARDS = (
-    ("RIYADH, SAUDI ARABIA", "HOUTHI MISSILE\nDAMAGES RIYADH TOWER",
-     "Missiles hit the financial district and damaged the Public Investment Fund tower. No injuries were reported."),
-    ("KERCH STRAIT, CRIMEA", "CRIMEA BRIDGE HIT FOR\nTHIRD TIME IN A WEEK",
-     "Ukraine struck the bridge again and halted rail traffic. Putin vowed a far harsher response."),
-    ("NEW YORK, US", "ANTHROPIC RAISES\n$81.3B IN RECORD IPO",
-     "The AI firm's shares closed 17% above the offer price near $97. The debut did not revive a weak AI trade."),
-)
 MARKETS = (
     ("S&P 500", "-2.0%"), ("NIKKEI 225", "-4.8%"), ("GOLD", "-4.2%"),
     ("BRENT", "$90.05 +0.7%"), ("US 10Y YIELD", "ABOVE 5%"),
 )
-FOOTNOTE = (
-    "Compiled from BBC, Reuters, AP, Al Jazeera, SCMP, France 24, The Hindu and others.",
-    "REPORTED = confirmed by multiple outlets. CLAIM = a single source or an official claim. "
-    "FORECAST = expected or planned.",
-)
+SOURCES = "Compiled from BBC, Reuters, AP, Al Jazeera, SCMP, France 24, The Hindu and others."
 
-# Rows are under the map in this order. Coordinates are (longitude, latitude).
-# Off-world briefs use the space panel. UN headquarters is plotted in New York.
+# The order and coordinates are those of the source brief list.
 BRIEFS = (
     ('KYIV, UKRAINE', 'Russian barrage damages the Austrian and Dutch embassies and a cathedral in the capital.', 'REPORTED', (30.52, 50.45)),
     ('BERLIN, GERMANY', "Ukraine's allies meet and say Europe is ready to talk with Russia.", 'REPORTED', (13.4, 52.52)),
@@ -144,19 +131,6 @@ COASTS = (
     ((-73, 20), (-69, 20), (-68, 18), (-72, 18)),
 )
 
-# Fixed offsets keep labels legible while the fine leaders retain the true positions.
-EUROPE = {1: (11, -1), 2: (15, -9), 5: (12, -2), 8: (-10, -8),
-          22: (0, -14), 23: (10, -6), 25: (-16, 4), 33: (-7, -10),
-          39: (-7, 11), 40: (10, 7)}
-US_EAST = {6: (-18, -8), 9: (-10, 14), 21: (-4, -14),
-           26: (12, 11), 27: (19, -2)}
-WORLD = {3: (14, -1), 4: (-10, -13), 7: (-14, -14), 10: (-9, -14),
-         11: (-4, -12), 14: (19, 1), 15: (9, 7), 16: (-10, 12),
-         17: (-9, 5), 18: (17, 13), 19: (-19, -6), 20: (15, 3),
-         24: (2, -12), 28: (2, 16), 29: (-9, 13), 30: (15, 9),
-         31: (7, -13), 32: (4, -12), 34: (-13, -3), 35: (-8, -14),
-         36: (12, 10), 37: (9, 12), 38: (12, 8)}
-
 # Monochrome glyph masks measured at 3×, compressed with their metrics. The
 # Source Sans 3 and Newsreader license notices are in fonts/.
 FONT_DATA = (
@@ -184,8 +158,8 @@ def glyph(font, character):
     return advance, left, top, width, height, rows
 
 
-def text_width(text, font, tracking=0):
-    return (sum(glyph(font, character)[0] for character in text) +
+def text_width(text, font, tracking=0, scale=1):
+    return (sum(glyph(font, character)[0] * scale for character in text) +
             max(0, len(text) - 1) * round(tracking * SCALE)) / SCALE
 
 
@@ -249,8 +223,8 @@ class Canvas:
         self.polygon(((x0 + dx, y0 + dy), (x1 + dx, y1 + dy),
                       (x1 - dx, y1 - dy), (x0 - dx, y0 - dy)), color)
 
-    def text(self, x, baseline, text, font, color=INK, *, align="left", tracking=0, overprint=False):
-        width = text_width(text, font, tracking)
+    def text(self, x, baseline, text, font, color=INK, *, align="left", tracking=0, overprint=False, scale=1):
+        width = text_width(text, font, tracking, scale)
         if align == "center":
             x -= width / 2
         elif align == "right":
@@ -260,7 +234,16 @@ class Canvas:
         for character in text:
             advance, left, top, width, height, bitmap = glyph(font, character)
             stride = (width + 7) // 8
-            x0, y0 = pen + left, baseline + top
+            x0, y0 = pen + round(left * scale), baseline + round(top * scale)
+            if scale != 1:
+                for row in range(round(height * scale)):
+                    for col in range(round(width * scale)):
+                        bit = int(col / scale)
+                        source = int(row / scale) * stride + bit // 8
+                        if bitmap[source] & (128 >> (bit % 8)):
+                            self.pixels[(y0 + row) * self.side + x0 + col] = color
+                pen += round(advance * scale) + round(tracking * SCALE)
+                continue
             for row in range(height):
                 offset = (y0 + row) * self.side + x0
                 for col in range(width):
@@ -310,107 +293,6 @@ class Canvas:
                 chunk(b"IDAT", zlib.compress(scanlines, 9)) + chunk(b"IEND", b""))
 
 
-def masthead(page):
-    page.rect(24, 16, 976, 2, INK)
-    page.text(512, 35, "THE WORLD IN ONE DAY", "bold13", BLUE, align="center", tracking=2)
-    page.text(512, 79, "20 NOVEMBER 2026", "display55", align="center", overprint=True)
-    page.rect(24, 88, 976, 21, BLUE)
-    page.text(512, 103, "FRIDAY · ALL THE DAY'S NEWS ON ONE PAGE · 40 STORIES, 6 CONTINENTS",
-              "bold12", PAPER, align="center", tracking=1)
-
-
-def summit(page):
-    # Three seats at one table. Flag motifs use the paper's red and blue inks.
-    x, y = 484, 148
-    page.rect(x - 40, y - 14, 104, 56, WASH)
-    page.line(x - 22, y + 6, x + 46, y + 6, RULE, 2)
-    for dx, country, color in ((-22, "US", BLUE), (12, "CHINA", RED), (46, "RUSSIA", BLUE)):
-        cx = x + dx
-        page.circle(cx, y + 6, 12, color)
-        if country == "CHINA":
-            star = ((0, -6), (1.5, -2), (6, -2), (2.5, .8), (3.8, 5),
-                    (0, 2.6), (-3.8, 5), (-2.5, .8), (-6, -2), (-1.5, -2))
-            page.polygon(tuple((cx + u, y + 6 + v) for u, v in star), PAPER)
-        else:
-            page.rect(cx - 8, y + 1, 16, 3, PAPER)
-            page.rect(cx - 8, y + 4, 16, 3, PALE_BLUE)
-            page.rect(cx - 8, y + 7, 16, 3, RED)
-            if country == "US":
-                page.rect(cx - 8, y + 1, 7, 5, BLUE)
-                page.circle(cx - 5, y + 3, 1, PAPER)
-        page.text(cx, y + 33, country, "bold10", color, align="center")
-
-
-def lead_articles(page):
-    page.rect(568, 119, 1, 114, RULE)
-    for (place, heading, body), x, head_font, head_width, body_width in zip(
-        LEADS, (24, 584), ("display27", "display22"), (415, 416), (528, 416)
-    ):
-        page.text(x, 129, place + "  /  REPORTED", "bold12", RED, tracking=.65)
-        lines = heading.splitlines()
-        assert max(text_width(line, head_font) for line in lines) <= head_width, lines
-        page.block(x, 154, lines, head_font, 26, overprint=True)
-        lines = wrap(body, "body14", body_width)
-        assert len(lines) <= 3, lines
-        page.block(x, 199, lines, "body14", 15)
-    summit(page)
-    page.rect(24, 237, 976, 1, INK)
-
-
-def card_illustration(page, x, y, number):
-    page.rect(x, y, 48, 40, WASH)
-    if number == 0:
-        page.polygon(((x + 10, y + 33), (x + 14, y + 9), (x + 24, y + 5),
-                      (x + 29, y + 34)), BLUE)
-        for level in (14, 19, 24, 29):
-            page.rect(x + 15, y + level, 8, 1, PALE_BLUE)
-        page.line(x + 42, y + 8, x + 27, y + 17, RED, 2)
-        page.polygon(((x + 28, y + 12), (x + 24, y + 19), (x + 32, y + 17)), RED)
-        page.rect(x + 6, y + 34, 36, 1, MUTED)
-    elif number == 1:
-        page.line(x + 5, y + 23, x + 43, y + 23, BLUE, 2)
-        for tower in (15, 32):
-            page.rect(x + tower, y + 8, 2, 22, BLUE)
-            page.line(x + tower + 1, y + 8, x + tower - 8, y + 23, BLUE)
-            page.line(x + tower + 1, y + 8, x + tower + 9, y + 23, BLUE)
-        page.line(x + 20, y + 21, x + 27, y + 25, RED, 3)
-        for level in (31, 35):
-            page.rect(x + 5, y + level, 38, 1, PALE_BLUE)
-    else:
-        for height, left in ((7, 9), (11, 17), (15, 25), (22, 33)):
-            page.rect(x + left, y + 34 - height, 5, height, PALE_BLUE)
-        page.rect(x + 6, y + 34, 36, 1, BLUE)
-        page.line(x + 8, y + 25, x + 22, y + 15, BLUE, 2)
-        page.line(x + 22, y + 15, x + 28, y + 19, BLUE, 2)
-        page.line(x + 28, y + 19, x + 40, y + 7, RED, 2)
-        page.polygon(((x + 34, y + 7), (x + 41, y + 6), (x + 40, y + 13)), RED)
-
-
-def secondary_articles(page):
-    for number, ((place, heading, body), x) in enumerate(zip(CARDS, (24, 268, 512))):
-        page.rect(x + 232, 246, 1, 99, RULE)
-        page.text(x, 254, place + "  /  REPORTED", "bold10", RED, tracking=.3)
-        lines = heading.splitlines()
-        assert max(text_width(line, "bold16") for line in lines) < 183, lines
-        page.block(x, 273, lines, "bold16", 16, overprint=True)
-        lines = wrap(body, "body12", 220)
-        assert len(lines) <= 3, lines
-        page.block(x, 310, lines, "body12", 13)
-        card_illustration(page, x + 183, 260, number)
-
-    x, y = 756, 244
-    page.rect(x, y, 244, 103, WASH)
-    page.rect(x, y, 244, 3, BLUE)
-    page.text(x + 12, y + 19, "MARKETS", "bold17", BLUE, tracking=1)
-    for index, (name, value) in enumerate(MARKETS):
-        baseline = y + 35 + index * 14
-        page.text(x + 12, baseline, name, "bold12")
-        if index == 0:
-            page.text(x + 59, baseline, "(5th straight fall)", "body12", MUTED)
-        color = RED if value.startswith("-") else BLUE
-        page.text(x + 232, baseline, value, "bold12", color, align="right")
-
-
 def project(lon, lat, box, bounds):
     x, y, width, height = box
     west, south, east, north = bounds
@@ -437,90 +319,438 @@ def coastlines(page, box, bounds):
     for line in COASTS:
         clipped = clip_polygon(line, bounds)
         if len(clipped) >= 3:
-            page.polygon([project(lon, lat, box, bounds) for lon, lat in clipped], LAND)
+            page.polygon([project(lon, lat, box, bounds) for lon, lat in clipped], SAND)
 
 
-def map_numbers(page, offsets, box, bounds):
-    labels = []
-    for number in sorted(offsets):
-        dx, dy = offsets[number]
-        _, _, tag, coords = BRIEFS[number - 1]
-        x, y = project(*coords, box, bounds)
-        color = BLUE if tag == "REPORTED" else RED
-        page.line(x, y, x + dx, y + dy, color, .65)
-        page.circle(x, y, 1.6, color)
-        labels.append((x + dx, y + dy, number, color))
-    for x, y, number, color in labels:
-        map_badge(page, x, y, number, color)
+class Scene:
+    """Draw each illustration in its own local coordinates."""
+
+    def __init__(self, page, x, y):
+        self.page, self.x, self.y = page, x, y
+
+    def rect(self, x, y, w, h, color):
+        self.page.rect(self.x + x, self.y + y, w, h, color)
+
+    def circle(self, x, y, r, color):
+        self.page.circle(self.x + x, self.y + y, r, color)
+
+    def poly(self, points, color):
+        self.page.polygon([(self.x + x, self.y + y) for x, y in points], color)
+
+    def line(self, x0, y0, x1, y1, color, width=1):
+        self.page.line(self.x + x0, self.y + y0, self.x + x1, self.y + y1, color, width)
+
+    def path(self, points, color, width):
+        for (x0, y0), (x1, y1) in zip(points, points[1:]):
+            self.line(x0, y0, x1, y1, color, width)
+
+    def text(self, x, y, label, font, color, **kwargs):
+        self.page.text(self.x + x, self.y + y, label, font, color, **kwargs)
 
 
-def map_badge(page, x, y, number, color=BLUE):
-    page.rect(x - 7.5, y - 5.5, 15, 11, color)
-    page.text(x, y + 3.35, str(number), "bold10", PAPER, align="center")
+def masthead(page):
+    page.rect(24, 24, 976, 2, INK)
+    page.text(24, 48, "THE WORLD IN ONE DAY", "bold13", RED, tracking=2)
+    page.text(1000, 48, "35 STORIES  /  FRIDAY EDITION", "bold13", MUTED, align="right", tracking=1)
+    page.text(23, 109, "20 November 2026", "display55", scale=1.40)
+    page.rect(781, 70, 1, 40, RULE)
+    page.text(799, 84, "WORLD NEWS", "bold13", RED, tracking=1)
+    page.text(799, 105, "Diplomacy  /  Justice  /  Markets", "body14", MUTED)
+    page.rect(24, 119, 976, 2, INK)
 
 
-def world_map(page):
-    page.rect(24, 353, 976, 1, INK)
-    page.text(24, 370, "WORLD BRIEFS", "bold17", BLUE, tracking=.7)
-    page.text(198, 370, "Numbers on the map match the briefs below.", "body12", MUTED)
-    page.rect(24, 377, 976, 124, WASH)
-    page.rect(636, 377, 1, 124, RULE)
-    page.rect(824, 377, 1, 124, RULE)
+def star(scene, x, y, r, color, tips=5, rotation=-math.pi / 2):
+    points = []
+    for i in range(tips * 2):
+        angle = rotation + i * math.pi / tips
+        radius = r if i % 2 == 0 else r * .42
+        points.append((x + radius * math.cos(angle), y + radius * math.sin(angle)))
+    scene.poly(points, color)
 
-    box = (31, 381, 590, 113)
-    bounds = (-180, -57, 180, 83)
+
+def flag(scene, x, y, country):
+    scene.rect(x - 2, y - 2, 2, 60, SAND)
+    scene.circle(x - 1, y - 3, 2, SAND)
+    if country == "US":
+        scene.rect(x, y, 54, 34, WHITE)
+        for stripe in range(0, 13, 2):
+            scene.rect(x, y + stripe * 34 / 13, 54, 34 / 13, US_RED)
+        scene.rect(x, y, 24, 18, US_BLUE)
+        for row in range(4):
+            for col in range(5):
+                scene.circle(x + 3 + col * 4.4, y + 3 + row * 4, .85, WHITE)
+    elif country == "China":
+        scene.rect(x, y, 54, 34, CHINA_RED)
+        star(scene, x + 11, y + 10, 6, CHINA_GOLD)
+        for dx, dy in ((19, 5), (23, 9), (23, 14), (19, 17)):
+            star(scene, x + dx, y + dy, 1.8, CHINA_GOLD)
+    else:
+        for index, color in enumerate((WHITE, RUSSIA_BLUE, RUSSIA_RED)):
+            scene.rect(x, y + 34 * index / 3, 54, 34 / 3, color)
+
+
+def delegate(scene, x, y, hair, jacket, tie):
+    scene.rect(x - 30, y + 30, 60, 43, NAVY)
+    scene.poly(((x - 35, y + 72), (x - 30, y + 42), (x - 12, y + 34),
+                (x + 12, y + 34), (x + 30, y + 42), (x + 35, y + 72)), jacket)
+    scene.rect(x - 6, y + 27, 12, 13, SKIN)
+    scene.poly(((x - 14, y + 36), (x + 14, y + 36), (x, y + 65)), WHITE)
+    scene.poly(((x - 4, y + 40), (x + 4, y + 40), (x + 2, y + 58),
+                (x, y + 65), (x - 3, y + 58)), tie)
+    scene.circle(x - 15, y + 19, 3, SKIN)
+    scene.circle(x + 15, y + 19, 3, SKIN)
+    scene.circle(x, y + 16, 16, SKIN)
+    scene.poly(((x - 16, y + 16), (x - 16, y + 7), (x - 10, y),
+                (x + 7, y - 2), (x + 16, y + 3), (x + 16, y + 13),
+                (x + 8, y + 8), (x - 8, y + 10)), hair)
+    for dx in (-5, 5):
+        scene.circle(x + dx, y + 18, 1.35, INK)
+    scene.line(x - 3, y + 24, x + 3, y + 24, BROWN, 1)
+
+
+def summit(scene):
+    scene.rect(0, 0, 392, 176, BLUE)
+    for x in (12, 122, 270, 380):
+        scene.rect(x, 0, 1, 120, SLATE)
+    scene.text(196, 22, "SHENZHEN  /  THREE-WAY SUMMIT", "bold13", WHITE, align="center", tracking=1.1)
+    for x, country, hair, jacket, tie in (
+        (82, "US", SAND, NAVY, US_RED),
+        (196, "China", INK, INK, CHINA_RED),
+        (310, "Russia", RULE, NAVY, RUSSIA_BLUE),
+    ):
+        flag(scene, x - 27, 34, country)
+        delegate(scene, x, 69, hair, jacket, tie)
+    scene.poly(((18, 154), (58, 126), (334, 126), (374, 154),
+                (348, 170), (44, 170)), SKIN)
+    scene.path(((18, 154), (44, 170), (348, 170), (374, 154)), BROWN, 3)
+    for x, name in ((82, "TRUMP"), (196, "XI"), (310, "PUTIN")):
+        scene.rect(x - 27, 149, 54, 14, CREAM)
+        scene.text(x, 160, name, "bold10", NAVY, align="center", tracking=.55)
+        scene.line(x, 130, x + 8, 118, INK, 1.25)
+        scene.circle(x + 8, 118, 2, INK)
+
+
+def court(scene):
+    scene.rect(0, 0, 284, 176, PALE_WATER)
+    scene.circle(71, 57, 35, SKY)
+    scene.rect(0, 143, 284, 33, MINT)
+    scene.rect(32, 85, 147, 62, WOOD)
+    scene.poly(((20, 89), (107, 64), (189, 89)), NAVY)
+    scene.rect(20, 88, 167, 7, CREAM)
+    scene.rect(26, 142, 156, 8, BROWN)
+    for x in (39, 62, 85, 108, 131, 154):
+        scene.circle(x + 4, 109, 5, DEEP_WATER)
+        scene.rect(x, 109, 8, 19, DEEP_WATER)
+        scene.rect(x - 4, 96, 3, 45, CREAM)
+    scene.rect(23, 61, 25, 84, BROWN)
+    scene.poly(((19, 65), (35, 28), (52, 65)), NAVY)
+    scene.circle(35, 77, 6, CREAM)
+    scene.path(((38, 78), (35, 77), (35, 73)), INK, 1)
+    scene.text(218, 58, "9-6", "display55", NAVY, align="center")
+    scene.text(219, 74, "ICJ VOTE", "bold12", DEEP_WATER, align="center", tracking=.8)
+    scene.line(218, 87, 218, 148, BROWN, 3)
+    scene.line(184, 100, 252, 100, BROWN, 2)
+    scene.circle(218, 100, 4, SAND)
+    for x in (184, 252):
+        scene.path(((x - 11, 127), (x, 100), (x + 11, 127)), BROWN, 1)
+        scene.poly(((x - 14, 126), (x + 14, 126), (x + 8, 134), (x - 8, 134)), WOOD)
+    scene.rect(203, 146, 30, 5, BROWN)
+    scene.text(142, 166, "PEACE PALACE  /  THE HAGUE", "bold10", DEEP_WATER, align="center", tracking=.75)
+
+
+def ipo(scene):
+    scene.rect(0, 0, 284, 176, NIGHT_GREEN)
+    for y in (85, 105, 125, 145):
+        scene.rect(20, y, 244, 1, TEAL)
+    for x in range(20, 265, 40):
+        scene.rect(x, 85, 1, 60, TEAL)
+    scene.text(19, 54, "$81.3B", "display55", MINT)
+    scene.text(21, 73, "ORIGINAL OFFERING SIZE", "bold12", MINT, tracking=.62)
+    scene.poly(((35, 135), (247, 95), (247, 145), (35, 145)), FOREST)
+    scene.line(35, 135, 247, 95, LEAF, 3)
+    scene.circle(35, 135, 4, LEAF)
+    scene.circle(247, 95, 4, WHITE)
+    scene.text(20, 166, "OFFER PRICE", "bold10", MINT, tracking=.5)
+    scene.text(264, 166, "DAY-ONE CLOSE: +17%", "bold10", MINT, align="right", tracking=.35)
+
+
+def lead_articles(page):
+    articles = (
+        (24, 392, summit, "SHENZHEN, CHINA", "Reuters / AP",
+         ("Trump, Xi and Putin hold", "first three-way summit"), "display27",
+         "The leaders signed a four-point peace declaration on nuclear risk, UN reform, energy stability and the ICC. Europe and Ukraine were absent."),
+        (424, 284, court, "THE HAGUE", "ICJ / AP",
+         ("ICJ rules Myanmar", "committed genocide"), "display22",
+         "The ICJ ruled 9-6 on the 2017 Rohingya campaign, a first against a state. Over 1.3 million remain displaced."),
+        (716, 284, ipo, "NEW YORK, US", "Reuters / Anthropic",
+         ("Anthropic's record IPO", "raises $81.3B"), "display22",
+         "Shares closed near $97 on debut, up 17% from the offer price. The debut failed to revive the AI trade."),
+    )
+    for x, width, draw, place, source, heading, font, body in articles:
+        page.rect(x, 132, width, 312, CREAM)
+        draw(Scene(page, x, 132))
+        page.text(x + 12, 327, place, "bold12", RED, tracking=.5)
+        page.text(x + width - 12, 327, "REPORTED", "bold12", GREEN, align="right")
+        assert all(text_width(line, font) <= width - 24 for line in heading), heading
+        page.block(x + 12, 353, heading, font, 25, overprint=True)
+        lines = wrap(body, "body14", width - 24)
+        assert len(lines) <= 3, lines
+        page.block(x + 12, 397, lines, "body14", 14)
+        page.text(x + 12, 438, "19 NOV", "bold10", MUTED, tracking=.5)
+        page.text(x + width - 12, 438, source, "bold10", MUTED, align="right")
+        page.rect(x, 444, width, 1, RULE)
+
+
+def bridge(scene):
+    scene.rect(0, 0, 68, 72, SKY)
+    scene.circle(14, 17, 6, WHITE)
+    scene.rect(0, 46, 68, 26, SEA)
+    for x in (13, 55):
+        scene.rect(x, 38, 4, 19, BLUE)
+    for x, w in ((4, 14), (19, 29), (52, 13)):
+        scene.rect(x, 39, w, 4, NAVY)
+    arch = [(x, 39 - 15 * math.sin(math.pi * (x - 10) / 47)) for x in range(10, 58, 3)]
+    scene.path(arch, BLUE, 2)
+    for x, y in arch[2::3]:
+        scene.line(x, y, x, 39, BLUE, 1)
+    star(scene, 50, 40, 10, US_RED, 7)
+    star(scene, 50, 40, 5, SAND, 7)
+    for x, y in ((4, 62), (29, 53), (44, 66)):
+        scene.rect(x, y, 18, 1, PALE_WATER)
+
+
+def riyadh(scene):
+    scene.rect(0, 0, 68, 72, NAVY)
+    for x, h in ((3, 12), (14, 21), (43, 17), (56, 29)):
+        scene.rect(x, 68 - h, 8, h, BLUE)
+    scene.poly(((22, 65), (26, 32), (35, 14), (42, 24), (43, 65)), SLATE)
+    for y in (30, 36, 44, 51, 57):
+        scene.rect(29, y, 9, 1, SKY)
+    scene.line(63, 11, 44, 31, SAND, 2)
+    scene.poly(((55, 17), (44, 31), (59, 23)), RUSSIA_RED)
+    star(scene, 43, 32, 7, SAND, 7)
+    scene.rect(0, 66, 68, 6, BLUE)
+
+
+def cyclone(scene):
+    scene.rect(0, 0, 68, 72, DEEP_WATER)
+    scene.poly(((0, 0), (35, 0), (21, 16), (14, 38), (0, 54)), SAGE)
+    for turn in (0, math.pi):
+        points = []
+        for step in range(25):
+            angle = step / 6 + turn
+            radius = 3.5 + step * .82
+            points.append((39 + radius * math.cos(angle), 41 + radius * math.sin(angle)))
+        scene.path(points, WHITE, 3)
+    scene.circle(39, 41, 2, PALE_WATER)
+
+
+def climate(scene):
+    scene.rect(0, 0, 68, 72, MINT)
+    scene.circle(30, 35, 24, DEEP_WATER)
+    scene.poly(((11, 30), (23, 18), (34, 23), (37, 31), (29, 37),
+                (28, 45), (20, 41), (17, 35)), LEAF)
+    scene.poly(((36, 39), (46, 37), (52, 43), (45, 51), (45, 56),
+                (38, 50)), SAGE)
+    scene.rect(55, 12, 4.5, 40, WHITE)
+    scene.circle(57, 53, 7, RED)
+    scene.rect(55.5, 27, 3.5, 26, RED)
+    for y in (18, 24, 30, 36):
+        scene.rect(61, y, 4, 1, TEAL)
+
+
+def tanker(scene):
+    scene.rect(0, 0, 68, 72, PALE_WATER)
+    scene.rect(0, 50, 68, 22, SEA)
+    scene.poly(((4, 43), (65, 43), (57, 56), (12, 56)), NAVY)
+    scene.rect(13, 32, 11, 11, WHITE)
+    scene.rect(15, 27, 7, 5, NAVY)
+    scene.rect(16, 35, 6, 2, BLUE)
+    for x in (28, 38, 48):
+        scene.rect(x, 38, 8, 5, ROSE)
+    scene.line(1, 60, 53, 60, WHITE, 1.3)
+    scene.line(14, 65, 65, 65, WHITE, 1.3)
+    scene.circle(50, 18, 5, CREAM)
+
+
+def kyiv(scene):
+    scene.rect(0, 0, 68, 72, BLUE)
+    scene.circle(51, 19, 8, SKY)
+    for x, y, h in ((9, 38, 23), (24, 27, 34), (43, 36, 25)):
+        scene.rect(x, y, 14, h, CREAM)
+        scene.poly(((x - 2, y), (x - 1, y - 6), (x + 7, y - 15),
+                    (x + 15, y - 6), (x + 16, y)), SAND)
+        scene.rect(x + 6, y + 7, 3, 8, BROWN)
+        scene.line(x + 7, y - 16, x + 7, y - 21, SAND, 1)
+    scene.rect(4, 60, 60, 5, SLATE)
+    scene.path(((57, 42), (53, 47), (57, 49), (54, 55)), RED, 1.4)
+
+
+def brussels(scene):
+    scene.rect(0, 0, 68, 72, SKY)
+    scene.rect(10, 11, 47, 53, WHITE)
+    scene.rect(16, 22, 35, 3, BLUE)
+    for y in (32, 39, 46):
+        scene.rect(16, y, 25, 1.3, SLATE)
+    scene.circle(50, 52, 13, BLUE)
+    for step in range(12):
+        angle = step * math.tau / 12
+        scene.circle(50 + 7.4 * math.cos(angle), 52 + 7.4 * math.sin(angle), 1.15, SAND)
+
+
+def senegal(scene):
+    scene.rect(0, 0, 68, 72, DEEP_WATER)
+    scene.rect(0, 45, 68, 27, SEA)
+    scene.line(4, 53, 38, 53, PALE_WATER, 1.5)
+    scene.line(34, 63, 65, 63, PALE_WATER, 1.5)
+    scene.poly(((8, 34), (57, 46), (47, 53), (21, 46)), SKIN)
+    scene.line(19, 36, 42, 42, CREAM, 2)
+    scene.circle(51, 24, 8, RED)
+    scene.circle(51, 24, 4, DEEP_WATER)
+    for x, y in ((47, 20), (55, 20), (47, 28), (55, 28)):
+        scene.circle(x, y, 1.5, CREAM)
+
+
+def secondary_articles(page):
+    cards = (
+        (bridge, "KERCH STRAIT", ("Crimea bridge hit", "for third time"), "Third strike in a week halts rail traffic.", "CNN / CBC"),
+        (riyadh, "RIYADH", ("Houthi missile", "damages tower"), "The PIF tower was hit. No injuries were reported.", "SPA / AP"),
+        (cyclone, "ODISHA", ("Cyclone Akvan", "makes landfall"), "372,000 people are sheltered.", "IMD / Sambad"),
+        (climate, "ANTALYA", ("COP31 draft drops", "fossil fuel phase-out"), "Climate talks run overtime.", "AP / Al Jazeera"),
+        (kyiv, "KYIV", ("Russian barrage", "hits Kyiv"), "Two embassies and a cathedral were damaged.", "Euronews"),
+        (tanker, "STRAIT OF HORMUZ", ("Tanker attacks", "intensify"), "US war cost is put at $48.3B.", "AP"),
+        (brussels, "BRUSSELS", ("UK and EU", "seal trade deals"), "The deals cover food and youth mobility.", "European Council"),
+        (senegal, "YENNE, SENEGAL", ("Migrant boat", "capsizes"), "Dozens are missing off the coast.", "Al Jazeera"),
+    )
+    for index, (draw, place, heading, body, source) in enumerate(cards):
+        x = 24 + index % 4 * 246
+        y = 460 + index // 4 * 112
+        page.rect(x, y, 238, 104, CREAM)
+        draw(Scene(page, x + 4, y + 8))
+        page.text(x + 80, y + 15, place, "bold10", RED)
+        page.text(x + 232, y + 15, "REPORTED", "bold10", GREEN, align="right")
+        assert text_width(place, "bold10") + text_width("REPORTED", "bold10") <= 146
+        assert all(text_width(line, "bold17") <= 154 for line in heading), heading
+        page.block(x + 80, y + 36, heading, "bold17", 17)
+        lines = wrap(body, "body12", 150)
+        assert len(lines) <= 2, lines
+        page.block(x + 80, y + 68, lines, "body12", 13)
+        page.text(x + 232, y + 96, source, "bold10", MUTED, align="right")
+        page.rect(x, y + 104, 238, 1, RULE)
+
+
+BRIEF_LINES = (
+    (4, "Israeli troops cross the Yellow Line, first since the truce."),
+    (6, "White House fires cyber director Sean Cairncross after outages."),
+    (7, "California opens Nvidia probe after Jensen Huang resigns."),
+    (10, "Martissant police raid kills 34 suspected gang members."),
+    (14, "Core inflation hits year's high; rate hike stays on track."),
+    (15, "Central bank sells $1B; real down 18% in a month."),
+    (16, "US group wins $60B critical minerals bid over Chinese rivals."),
+    (18, "US and Venezuela sign a military cooperation deal."),
+    (19, "Drone strike on a gold mine kills 10 people."),
+    (20, "Arson and protests precede ex-PM Hasina's planned return."),
+    (22, "Denmark ratifies the US-Greenland security deal."),
+    (23, "Russian border set to close for at least six months."),
+    (24, "Housing block partly collapses in gas blast, killing six."),
+    (26, "Senate passes energy permitting overhaul, 62 to 33."),
+    (27, "IMF sees global debt nearing 100% of world GDP."),
+    (29, "Fiji and Tonga declare disasters as El Nino drought worsens."),
+    (30, "El Nino storm threatens floods and mudslides."),
+    (32, "Army says 22 militants killed in border raids."),
+    (33, "GTA VI launch tops an estimated $2.3B, a debut record."),
+    (35, "Khurelsukh resigns; speaker becomes acting president."),
+    (36, "Somalia expels UAE ambassador in sovereignty row."),
+    (37, "Philippines and Chile sign free trade deal at APEC."),
+    (39, "Youth in 25+ countries plan a living-cost strike."),
+    (40, "Reports put Italy's Meta fine at 805 million euros."),
+)
+
+TAG_INK = {"REPORTED": GREEN, "CLAIM": RED, "FORECAST": BLUE}
+
+
+def list_items():
+    for number, (original, line) in enumerate(BRIEF_LINES, 1):
+        place, _, tag, coords = BRIEFS[original - 1]
+        yield number, place, line, tag, coords
+
+
+def number_dot(page, x, y, number, color):
+    page.circle(x, y, 6.9, color)
+    page.text(x, y + 3.3, str(number), "bold10", WHITE, align="center")
+
+
+def world_map(page, items):
+    page.text(24, 704, "WHERE IT HAPPENED", "bold13", INK, tracking=.65)
+    page.rect(24, 713, 256, 143, PALE_WATER)
+    box, bounds = (28, 720, 248, 124), (-180, -58, 180, 85)
     for longitude in range(-150, 180, 30):
         x, _ = project(longitude, 0, box, bounds)
-        page.rect(x, 381, .55, 113, LAND)
+        page.rect(x, 720, .45, 124, SEA)
     for latitude in (-30, 0, 30, 60):
         _, y = project(0, latitude, box, bounds)
-        page.rect(31, y, 590, .55, LAND)
+        page.rect(28, y, 248, .45, SEA)
     coastlines(page, box, bounds)
-    for number in sorted((*EUROPE, *US_EAST)):
-        x, y = project(*BRIEFS[number - 1][3], box, bounds)
-        page.circle(x, y, 1.5, BLUE)
-    map_numbers(page, WORLD, box, bounds)
+    dots = []
+    for number, _, _, tag, coords in items:
+        anchor_x, anchor_y = project(*coords, box, bounds)
+        color = TAG_INK[tag]
+        # Try positions nearest each true location. Keep all badge edges apart.
+        steps = range(-40, 41, 8)
+        offsets = sorted(((dx, dy) for dx in steps for dy in steps),
+                         key=lambda p: (p[0] ** 2 + p[1] ** 2, abs(p[1]), p))
+        for dx, dy in offsets:
+            x, y = anchor_x + dx, anchor_y + dy
+            if not (32 <= x <= 272 and 722 <= y <= 848):
+                continue
+            if all(math.hypot(x - px, y - py) >= 15 for px, py, _, _ in dots):
+                break
+        else:
+            raise ValueError(f"No room for map badge {number}")
+        page.line(anchor_x, anchor_y, x, y, MUTED, .72)
+        page.circle(anchor_x, anchor_y, 1.3, INK)
+        dots.append((x, y, number, color))
+    for x, y, number, color in dots:
+        number_dot(page, x, y, number, color)
 
-    page.text(645, 392, "EUROPE", "bold10", MUTED, tracking=.7)
-    box, bounds = (651, 399, 160, 94), (-13, 31, 43, 62)
-    coastlines(page, box, bounds)
-    map_numbers(page, EUROPE, box, bounds)
 
-    page.text(834, 392, "US EAST COAST", "bold10", MUTED, tracking=.7)
-    box, bounds = (843, 399, 147, 49), (-82, 34, -70, 44)
-    coastlines(page, box, bounds)
-    map_numbers(page, US_EAST, box, bounds)
-
-    page.rect(825, 457, 175, 1, RULE)
-    page.text(834, 470, "SPACE", "bold10", MUTED, tracking=.7)
-    for number, x, label in ((12, 841, "Voyager 1"), (13, 926, "Mercury")):
-        map_badge(page, x, 486, number)
-        page.text(x + 12, 490, label, "body12", BLUE)
+def market_box(page):
+    page.rect(24, 864, 256, 100, CREAM)
+    page.rect(24, 864, 256, 2, FOREST)
+    page.text(32, 881, "MARKETS", "bold13", FOREST, tracking=.5)
+    page.text(272, 881, "EDITION SNAPSHOT", "bold10", MUTED, align="right")
+    for index, (name, value) in enumerate(MARKETS):
+        baseline = 896 + index * 14
+        if index:
+            page.rect(32, baseline - 11, 240, .5, RULE)
+        page.text(32, baseline, name, "bold12")
+        page.text(272, baseline, value, "bold13", RED if value.startswith("-") else GREEN, align="right")
 
 
-def news_briefs(page):
-    top, bottom = 507, 976
-    page.rect(344, top, 1, bottom - top, RULE)
-    page.rect(676, top, 1, bottom - top, RULE)
-    for start, end, x in ((0, 13, 24), (13, 26, 356), (26, 40, 688)):
-        rows = [(place, wrap(body, "body12", 287), tag) for place, body, tag, _ in BRIEFS[start:end]]
-        heights = [14 + 11 * len(lines) for _, lines, _ in rows]
-        extra = bottom - top - sum(heights)
-        assert extra >= 0, heights
-        y = top
-        for index, ((place, lines, tag), height) in enumerate(zip(rows, heights)):
-            number = start + index + 1
-            color = BLUE if tag == "REPORTED" else RED
-            if index:
-                page.rect(x, y, 312, .65, RULE)
-            page.text(x, y + 12, f"{number:02d}", "bold13", color)
-            page.text(x + 24, y + 12, place, "bold12", tracking=.18)
-            page.text(x + 312, y + 12, tag, "bold10", color, align="right", tracking=.3)
-            page.block(x + 24, y + 23, lines, "body12", 11)
-            y += height + (index + 1) * extra // len(rows) - index * extra // len(rows)
+def news_briefs(page, items):
+    page.rect(24, 684, 976, 1, INK)
+    page.text(296, 704, "ALSO ON 20 NOVEMBER", "bold13", INK, tracking=.65)
+    page.text(1000, 704, "NUMBERS MATCH THE MAP", "bold10", MUTED, align="right", tracking=.35)
+    page.rect(644, 713, 1, 251, RULE)
+    for i, (number, place, line, tag, _) in enumerate(items):
+        x = 296 + (i // 12) * 356
+        y = 713 + (i % 12) * 21
+        color = TAG_INK[tag]
+        page.rect(x, y, 348, .5, RULE)
+        number_dot(page, x + 7, y + 11, number, color)
+        page.text(x + 19, y + 9, place, "bold10", color)
+        page.text(x + 342, y + 9, tag, "bold10", color, align="right")
+        assert text_width(line, "body12") <= 329, line
+        page.text(x + 19, y + 19, line, "body12")
 
-    page.rect(24, 980, 976, 1.5, INK)
-    page.block(24, 995, FOOTNOTE, "body12", 13, MUTED)
+
+def footer(page):
+    page.rect(24, 969, 976, 1, RED)
+    page.text(24, 982, "DATE CHECK", "bold12", RED)
+    page.text(110, 982, "Friday, 20 November 2026 coverage. The summit, ICJ verdict and IPO debut took place on 19 Nov.", "body12")
+    page.text(110, 994, "Follow-ups are included. Omitted for date: Kenya Ebola, Voyager, Berlin talks, Yongbyon, Seoul retrial and Mercury arrival.", "body12")
+    page.text(24, 1007, SOURCES, "body12", MUTED)
+    page.text(1000, 1007, "REPORTED: multiple outlets  /  CLAIM: single source or official claim  /  FORECAST: expected or planned", "bold10", MUTED, align="right")
 
 
 def main():
@@ -528,8 +758,11 @@ def main():
     masthead(page)
     lead_articles(page)
     secondary_articles(page)
-    world_map(page)
-    news_briefs(page)
+    items = tuple(list_items())
+    world_map(page, items)
+    market_box(page)
+    news_briefs(page, items)
+    footer(page)
     output = Path(os.environ.get("MAKEFUN_OUTPUT_DIR", "/output"))
     output.mkdir(parents=True, exist_ok=True)
     (output / "entry.png").write_bytes(page.png())
