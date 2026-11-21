@@ -31,6 +31,12 @@ PAPER_RGB = mix_color(STONE_YELLOW, STONE_WHITE, 13)
 INK_RGB = mix_color(STONE_NEUTRAL, STONE_ORANGE, 20)
 PALETTE = (PAPER_RGB, INK_RGB, mix_color(PAPER_RGB, INK_RGB, 70),
            mix_color(PAPER_RGB, INK_RGB, 45), mix_color(PAPER_RGB, INK_RGB, 57))
+BODY_INK = len(PALETTE)
+DISPLAY_INK = BODY_INK + 3
+BLEED_INK = DISPLAY_INK + 5
+PALETTE += tuple(bytes(channel + delta for channel in INK_RGB)
+                 for delta in (-2, 0, 3, -4, 0, 4, 8, 13))
+PALETTE += (mix_color(PAPER_RGB, INK_RGB, 32),)
 
 
 # Monochrome glyph masks measured at 3×, compressed with their metrics. The
@@ -187,6 +193,13 @@ def wrap(text, font, width):
 PRINT_SEED = 20261120
 
 
+def print_mark(x, y):
+    number = ((x + y * 1031 + PRINT_SEED) * 0x9E3779B1) & 0xFFFFFFFF
+    number ^= number >> 15
+    number = (number * 0x85EBCA77) & 0xFFFFFFFF
+    return number ^ (number >> 13)
+
+
 def print_field(random, step, strength):
     """Interpolate the uneven surface of the sheet or the inking roller."""
     count = SIZE // step + 2
@@ -201,10 +214,120 @@ def print_field(random, step, strength):
                // (step * step) for i, dx in columns]
 
 
+def chipped_edge(random, corner_depth):
+    """Leave a ragged edge with a few deep bites and shallower paper breaks."""
+    anchors = [random.randint(0, 3) for _ in range(SIZE // 7 + 2)]
+    edge = [(anchors[x // 7] * (7 - x % 7) + anchors[x // 7 + 1] * (x % 7)) / 7
+            for x in range(SIZE)]
+    for position, extent, depth in (*corner_depth, *(
+            (random.randrange(SIZE), random.randint(3, 18), random.uniform(1, 6))
+            for _ in range(46))):
+        for x in range(max(0, position - extent), min(SIZE, position + extent + 1)):
+            taper = 1 - abs(x - position) / extent
+            edge[x] = max(edge[x], depth * taper + random.uniform(-.8, .8))
+    return [round(depth * 2) for depth in edge]
+
+
+class Newsprint:
+    def __init__(self):
+        random = Random(PRINT_SEED)
+        self.clouds = print_field(random, 93, 17)
+        self.mottle = print_field(random, 23, 10)
+        self.pulp = print_field(random, 6, 6)
+        self.top = chipped_edge(random, ((0, 43, 15), (SIZE - 1, 25, 12)))
+        self.bottom = chipped_edge(random, ((0, 28, 14), (SIZE - 1, 40, 17)))
+        self.left = chipped_edge(random, ((0, 18, 17), (SIZE - 1, 30, 14)))
+        self.right = chipped_edge(random, ((0, 23, 16), (SIZE - 1, 28, 15)))
+        self.marks = bytearray([128]) * (SIZE * SIZE)
+        self.foxing(random)
+        self.fibers(random)
+
+    def foxing(self, random):
+        # Soft, torn-edged stains have tighter dark centers and broken halos.
+        for index in range(690):
+            x, y = random.randrange(SIZE), random.randrange(SIZE)
+            if index < 260:
+                y = min(y, SIZE - 1 - y) // 7
+                if index % 2:
+                    y = SIZE - 1 - y
+                if index % 4 >= 2:
+                    x, y = y, x
+            radius = random.uniform(1.1, 4.6) if index >= 34 else random.uniform(8, 23)
+            oval = random.uniform(.65, 1.35)
+            reach = math.ceil(radius * 1.6)
+            darkness = random.randint(19, 42)
+            if index % 5 == 1 and index >= 34:
+                darkness += 31
+            for dy in range(max(-reach, -y), min(reach, SIZE - 1 - y) + 1):
+                for dx in range(max(-reach, -x), min(reach, SIZE - 1 - x) + 1):
+                    gap = math.hypot(dx + dy * .19, dy / oval) / radius
+                    gap += ((print_mark(x + dx, y + dy) & 15) - 7) / 52
+                    core = max(0, 1 - gap)
+                    rim = max(0, .18 - abs(gap - .87))
+                    index_at = (y + dy) * SIZE + x + dx
+                    self.marks[index_at] = max(38, self.marks[index_at]
+                                                - round(darkness * (core + rim)))
+
+    def fibers(self, random):
+        for _ in range(16900):
+            x, y = random.randrange(3, SIZE - 7), random.randrange(3, SIZE - 3)
+            length = random.choices((2, 3, 4, 6), (45, 30, 19, 6))[0]
+            rise = random.choice((-1, 0, 0, 0, 1))
+            tone = random.choice((-9, -6, -5, -3, 5, 8))
+            for step in range(length):
+                pixel = (y + rise * step // length) * SIZE + x + step
+                grain = tone if 0 < step < length - 1 else tone // 2
+                self.marks[pixel] = max(0, min(255, self.marks[pixel] + grain))
+
+    def rows(self):
+        for y, (clouds, mottle, pulp) in enumerate(zip(self.clouds, self.mottle, self.pulp)):
+            stains = self.marks[y * SIZE:(y + 1) * SIZE]
+            shades = []
+            for x, (cloud, fleck, fiber, stain) in enumerate(zip(clouds, mottle, pulp, stains)):
+                top = 2 * y - self.top[x]
+                bottom = 2 * (SIZE - 1 - y) - self.bottom[x]
+                left = 2 * x - self.left[y]
+                right = 2 * (SIZE - 1 - x) - self.right[y]
+                margin = min(top, bottom, left, right)
+                mark = print_mark(x, y)
+                if margin < 0:
+                    # A narrow cast shadow reveals the missing paper at the very edge.
+                    shade = -119 + min(83, -margin * 7) + cloud + (mark & 7)
+                else:
+                    edge_band = max(0, 96 - margin) * (19 - cloud // 3) // 96
+                    lip = 13 + fiber * 2 if margin < 2 else -max(0, 15 - margin * 2)
+                    fold = self.corner_fold(x, y, fiber)
+                    grain = ((mark & 7) - 3) // 2
+                    shade = cloud + fleck + fiber + stain - 128 - edge_band + lip + fold + grain
+                # Three-unit tone steps keep the full-sheet grain compact in PNG.
+                shades.append((max(-123, min(23, shade)) // 3, mark))
+            yield shades
+
+    @staticmethod
+    def corner_fold(x, y, fiber):
+        dx, dy = min(x, SIZE - 1 - x), min(y, SIZE - 1 - y)
+        if dx + dy > 68:
+            return 0
+        span = (36 if y < SIZE // 2 else 48) + (9 if x < SIZE // 2 else 0)
+        crease = dx + dy + (dx * dy) // 115 - span + fiber // 3
+        if -2 <= crease <= 1:
+            return (15, 9, -19, -13)[crease + 2]
+        return -max(0, 12 + crease) if crease < -2 else 0
+
+
+def paper_colors():
+    # Derive the brown patina from the theme's paper and warm ink colors.
+    stock = mix_color(PAPER_RGB, STONE_ORANGE, 2)
+    return {shade: bytes(max(0, min(255, channel + slope * shade))
+                         for channel, slope in zip(stock, (3, 4, 5)))
+            for shade in range(-41, 8)}
+
+
 class Canvas:
     def __init__(self):
         self.side = SIZE * SCALE
         self.pixels = bytearray(self.side * self.side)
+        self.pen = Random(PRINT_SEED + 9)
 
     def span(self, x0, x1, y, color):
         if 0 <= y < self.side:
@@ -212,11 +335,6 @@ class Canvas:
             if x1 > x0:
                 start = y * self.side + x0
                 self.pixels[start:start + x1 - x0] = bytes((color,)) * (x1 - x0)
-
-    def rect(self, x, y, width, height, color):
-        x0, x1 = round(x * SCALE), round((x + width) * SCALE)
-        for row in range(round(y * SCALE), round((y + height) * SCALE)):
-            self.span(x0, x1, row, color)
 
     def polygon(self, points, color):
         points = [(x * SCALE, y * SCALE) for x, y in points]
@@ -249,63 +367,82 @@ class Canvas:
                       (x1 - dx, y1 - dy), (x0 - dx, y0 - dy)), color)
 
     def text(self, x, baseline, text, font, color=INK, *, align="left",
-             tracking=0, scale=1, squeeze=1):
+             tracking=0, scale=1, squeeze=1, distress=False):
         inset = {"left": 0, "center": .5, "right": 1}[align]
         horizontal = scale * squeeze
         pen = round((x - inset * text_width(text, font, tracking, scale, squeeze)) * SCALE)
         baseline = round(baseline * SCALE)
         letter_gap = round(tracking * SCALE)
-        for character in text:
+        for index, character in enumerate(text):
             advance, left, top, width, height, bitmap = glyph(font, character)
             stride = (width + 7) // 8
             x0, y0 = pen + round(left * horizontal), baseline + round(top * scale)
             x1, y1 = x0 + round(width * horizontal), y0 + round(height * scale)
             left_edge, right_edge = max(0, x0), min(x1, self.side)
+            impression = print_mark(pen + index * 29, baseline + ord(character))
+            pigment = color
+            if color == INK:
+                pigment = DISPLAY_INK + impression % 5 if distress else BODY_INK + impression % 3
+            bleed_x = 1 if impression & 8 else -1
+            bleed_y = 1 + (impression & 1)
             for y in range(max(0, y0), min(y1, self.side)):
                 source_row = min(height - 1, int((y - y0) / scale)) * stride
                 target_row = y * self.side
                 for x in range(left_edge, right_edge):
                     col = min(width - 1, int((x - x0) / horizontal))
                     if bitmap[source_row + col // 8] & (0x80 >> (col % 8)):
-                        self.pixels[target_row + x] = color
+                        self.pixels[target_row + x] = pigment
+                        if distress and (x * 3 + y * 5 + impression) % 17 < 8:
+                            bx, by = x + bleed_x, y + bleed_y
+                            if 0 <= bx < self.side and by < self.side:
+                                offset = by * self.side + bx
+                                if self.pixels[offset] == PAPER:
+                                    self.pixels[offset] = BLEED_INK
             pen += round(advance * horizontal) + letter_gap
 
     def png(self):
         # The packed channels each have ample room for the sum of nine samples.
         # This integer box filter creates no platform-dependent color profiles.
-        weights = tuple((r << 24) | (g << 12) | b for r, g, b in PALETTE)
-        # Print texture changes tone without eroding the edges of the type.
-        random = Random(PRINT_SEED)
-        paper_field = print_field(random, 43, 4)
-        ink_field = print_field(random, 17, 9)
-        shades = range(-11, 12)
-        tinted = tuple({delta: bytes(min(255, channel + delta) for channel in color)
-                       for delta in shades} for color in PALETTE)
+        def packed(rgb):
+            red, green, blue = rgb
+            return (red << 24) | (green << 12) | blue
+
+        weights = tuple(map(packed, PALETTE))
+        paper = paper_colors()
+        paper_weights = {shade: packed(rgb) for shade, rgb in paper.items()}
+        wear = print_field(Random(PRINT_SEED + 4), 11, 18)
         scanlines = bytearray()
         side = self.side
-        for y, (paper_row, ink_row) in enumerate(zip(paper_field, ink_field)):
+        for y, (paper_row, wear_row) in enumerate(zip(Newsprint().rows(), wear)):
             start = y * SCALE * side
             rows = (self.pixels[start:start + side],
                     self.pixels[start + side:start + 2 * side],
                     self.pixels[start + 2 * side:start + 3 * side])
             line = bytearray()
-            for x, i in enumerate(range(0, side, SCALE)):
+            for x, (shade, mark) in enumerate(paper_row):
+                i = x * SCALE
                 a, b, c = (row[i:i + SCALE] for row in rows)
-                grain = ((x + y * 1031 + PRINT_SEED) * 0x9E3779B1) & 0xFFFFFFFF
-                mark = (grain ^ (grain >> 13) ^ (grain >> 21)) & 63
-                fiber = -3 if mark == 0 else 2 if mark == 1 else mark % 3 - 1
-                paper = paper_row[x] + fiber
-                ink = ink_row[x] + mark % 5 - 2
-                fill = a[0]
-                if a == b == c and a[1] == a[2] == fill:
-                    line.extend(tinted[fill][paper if fill == PAPER else ink])
-                else:
-                    mix = sum(weights[index] for row in (a, b, c) for index in row)
-                    uncovered = a.count(PAPER) + b.count(PAPER) + c.count(PAPER)
-                    tint = uncovered * paper + (9 - uncovered) * ink + 4
-                    line.extend((((mix >> 24) + tint) // 9,
-                                 (((mix >> 12) & 4095) + tint) // 9,
-                                 ((mix & 4095) + tint) // 9))
+                uncovered = a.count(PAPER) + b.count(PAPER) + c.count(PAPER)
+                ground = paper[shade]
+                if uncovered == 9:
+                    line.extend(ground)
+                    continue
+                raised = (mark >> 27) & 31
+                texture = wear_row[x]
+                tint = (9 - uncovered) * ((texture + raised - 16) // 10)
+                mix = sum(weights[index] for row in (a, b, c) for index in row if index)
+                mix += paper_weights[shade] * uncovered
+                value = (((mix >> 24) + tint + 4) // 9,
+                         (((mix >> 12) & 4095) + tint + 4) // 9,
+                         ((mix & 4095) + tint + 4) // 9)
+                # Patchy surface loss is confined to the three lead headlines and date.
+                # Spots follow the paper grain, but the smaller type keeps solid stems.
+                pressure = raised + texture + ((mark >> 11) & 7)
+                if pressure > 27 and any(DISPLAY_INK <= index < BLEED_INK for row in (a, b, c)
+                                         for index in row):
+                    worn = min(82, (pressure - 27) * 5 + 9)
+                    value = mix_color(value, ground, worn)
+                line.extend(value)
             # PNG Sub prediction keeps the grain inexpensive to encode.
             scanlines.append(1)
             scanlines.extend(line[:3])
@@ -320,37 +457,67 @@ class Canvas:
                 chunk(b"IDAT", zlib.compress(scanlines, 9)) + chunk(b"IEND", b""))
 
 
+def cut_line(page, first, last, ink, width, *, overprint=False):
+    x, y = first
+    dx, dy = last[0] - x, last[1] - y
+    length = math.hypot(dx, dy)
+    if length == 0:
+        return
+    nx, ny = -dy / length, dx / length
+    pieces = max(1, math.ceil(length / (9 if overprint else 11)))
+    random = page.pen
+    points = [first]
+    drift = 0
+    for step in range(1, pieces):
+        fraction = step / pieces
+        drift = .54 * drift + random.uniform(-.56, .56)
+        points.append((x + dx * fraction + drift * nx, y + dy * fraction + drift * ny))
+    points.append(last)
+    if overprint:
+        # The second impression slips to one side and catches only in patches.
+        for (ax, ay), (bx, by) in zip(points, points[1:]):
+            if random.random() < .67:
+                offset = random.uniform(.50, 1.12)
+                page.line(ax + nx * offset, ay + ny * offset,
+                          bx + nx * offset, by + ny * offset, FAINT_INK, width * .43)
+    for (ax, ay), (bx, by) in zip(points, points[1:]):
+        pressure = random.uniform(.69, 1.25) if overprint or pieces > 1 else 1
+        pigment = HALF_INK if overprint and ink == INK and random.random() < .08 else ink
+        page.line(ax, ay, bx, by, pigment, width * pressure)
+
+
 def stroke(page, points, color=INK, width=1, *, close=False):
     following = (*points[1:], points[0]) if close else points[1:]
     for a, b in zip(points, following):
-        page.line(*a, *b, color, width)
+        cut_line(page, a, b, color, width)
 
 
 def hatch(page, points, *, spacing=4, slope=.55, ink=HALF_INK, width=.65):
-    """Cut parallel burin strokes at the edges of a drawn shape."""
+    """Cut uneven burin strokes clipped to the edges of a drawn shape."""
+    random = page.pen
     edges = tuple(zip(points, (*points[1:], points[0])))
+    pivot = sum(x for x, y in points) / len(points)
+    bounds = [y - slope * (x - pivot) for x, y in points]
+    spread = .14 * max(abs(x - pivot) for x, y in points)
+    first = math.floor((min(bounds) - spread) / spacing)
+    last = math.ceil((max(bounds) + spread) / spacing)
 
-    def intercept(point):
-        x, y = point
-        return y - slope * x
-
-    offsets = [intercept(point) for point in points]
-    first = math.ceil(min(offsets) / spacing)
-    last = math.ceil(max(offsets) / spacing)
     for index in range(first, last):
-        level = index * spacing
+        level = (index + random.uniform(-.39, .39)) * spacing
+        direction = slope + random.uniform(-.14, .14)
         cuts = []
-        for a, b in edges:
-            near, far = intercept(a), intercept(b)
+        for (ax, ay), (bx, by) in edges:
+            near, far = ay - direction * (ax - pivot), by - direction * (bx - pivot)
             if min(near, far) <= level < max(near, far):
-                x = a[0] + (b[0] - a[0]) * (level - near) / (far - near)
-                cuts.append(x)
+                cuts.append(ax + (bx - ax) * (level - near) / (far - near))
         cuts.sort()
         for start, end in zip(cuts[::2], cuts[1::2]):
             if end - start > 1.5:
-                weight = width * (1 if index % 3 == 0 else .72)
-                page.line(start, level + slope * start, end, level + slope * end,
-                          ink, weight)
+                weight = width * random.uniform(.48, 1.64)
+                start += min((end - start) * .15, random.uniform(0, 1.5))
+                end -= min((end - start) * .15, random.uniform(0, 1.5))
+                cut_line(page, (start, level + direction * (start - pivot)),
+                         (end, level + direction * (end - pivot)), ink, weight)
 
 
 class Drawing:
@@ -383,10 +550,11 @@ class Drawing:
         self.page.text(self.x + x, self.y + y, label, font, ink, **options)
 
 
-def typeset(page, x, y, lines, font, width, leading, *, ink=INK, scale=1, squeeze=1):
+def typeset(page, x, y, lines, font, width, leading, *, ink=INK, scale=1, squeeze=1,
+            distress=False):
     for line in lines:
         assert text_width(line, font, scale=scale, squeeze=squeeze) <= width, line
-        page.text(x, y, line, font, ink, scale=scale, squeeze=squeeze)
+        page.text(x, y, line, font, ink, scale=scale, squeeze=squeeze, distress=distress)
         y += leading
     return y
 
@@ -398,7 +566,13 @@ def paragraph(page, x, y, copy, width, *, font="news14", leading=17, limit=3):
 
 
 def rule(page, y, x=32, width=960, ink=RULE, weight=1):
-    page.rect(x, y, width, weight, ink)
+    center = y + weight / 2
+    cut_line(page, (x, center), (x + width, center), ink, weight, overprint=True)
+
+
+def column_rule(page, x, top, bottom, ink=RULE, weight=.65):
+    center = x + weight / 2
+    cut_line(page, (center, top), (center, bottom), ink, weight, overprint=True)
 
 
 def double_rule(page, y):
@@ -409,7 +583,7 @@ def double_rule(page, y):
 def masthead(page):
     date = "Friday, 20 November 2026"
     assert text_width(date, "edition", scale=.90, squeeze=1.1) <= 960
-    page.text(512, 88, date, "edition", align="center", scale=.90, squeeze=1.1)
+    page.text(512, 88, date, "edition", align="center", scale=.90, squeeze=1.1, distress=True)
     double_rule(page, 114)
     page.text(32, 18, "The World in Brief", "display22", scale=.62)
     page.text(992, 18, "21 Reports, UTC Edition", "display22", align="right", scale=.62)
@@ -491,25 +665,29 @@ def engrave_cloud(drawing, random, knots, depth):
         swell = .84 + .19 * math.sin(travel * 24) + .10 * math.sin(travel * 61)
         reach = depth * belly * swell
         # Short overlapping cuts follow the flow, then cross its shadow.
-        for cut in range(max(1, round(reach / 2.1))):
-            across = (cut * 2.15 + random.uniform(-.8, .8)) - reach * .24
-            start_x = x - across * along_y + random.uniform(-1.5, 1.5)
-            start_y = y + across * along_x + random.uniform(-1.3, 1.3)
-            run = random.uniform(3.4, 9.5) * (.56 + .56 * belly)
-            drift = random.uniform(-2, 3.5)
-            shade = INK if cut < reach * .22 else HALF_INK
+        across = -reach * .27 + random.uniform(-2, 1)
+        while across < reach * .69:
+            start_x = x - across * along_y + random.uniform(-2.25, 2.25)
+            start_y = y + across * along_x + random.uniform(-1.75, 1.75)
+            run = random.uniform(3.2, 11.5) * (.52 + .64 * belly)
+            drift = random.uniform(-3.6, 4.8)
+            bend = random.uniform(-1.6, 1.6)
+            shade = INK if across < reach * .19 + random.uniform(-2.2, 2.2) else HALF_INK
             drawing.line(
                 (start_x, start_y),
-                (start_x + along_x * run, start_y + along_y * run),
+                (start_x + along_x * run - along_y * bend,
+                 start_y + along_y * run + along_x * bend),
                 (start_x + along_x * (run + 2) - along_y * drift,
                  start_y + along_y * (run + 2) + along_x * drift),
-                ink=shade, width=random.uniform(.42, .90),
+                ink=shade, width=random.uniform(.29, 1.31),
             )
-        if index % 2 == 0 and reach > 4:
+            across += random.uniform(1.05, 3.9)
+        if random.random() < .67 and reach > 4:
+            slant = random.uniform(2, 10)
             drawing.line((x + along_y * 2, y - along_x * 2),
-                         (x - along_y * reach + along_x * 6,
-                          y + along_x * reach + along_y * 6),
-                         ink=HALF_INK, width=random.uniform(.36, .65))
+                         (x - along_y * reach + along_x * slant,
+                          y + along_x * reach + along_y * slant),
+                         ink=HALF_INK, width=random.uniform(.28, .84))
 
 
 def cyclone(d):
@@ -590,10 +768,10 @@ def conference(d):
 
 
 def lead_stories(page):
-    page.rect(468, 124, .85, 334, HALF_INK)
-    page.rect(736, 124, .85, 334, HALF_INK)
+    column_rule(page, 468, 124, 458, HALF_INK, .85)
+    column_rule(page, 736, 124, 458, HALF_INK, .85)
     typeset(page, 32, 179, ("RUSSIAN MISSILES", "FALL IN POLAND"),
-            "display55", 420, 46, scale=.96, squeeze=.765)
+            "display55", 420, 46, scale=.96, squeeze=.765, distress=True)
     paragraph(page, 32, 246,
               "NATO raises concern over an airspace violation after Russian "
               "missiles land on Polish territory.", 418, limit=2)
@@ -602,7 +780,7 @@ def lead_stories(page):
 
     cyclone(Drawing(page, 488, 132))
     typeset(page, 488, 346, ("CYCLONE AKVAN", "MAKES LANDFALL"),
-            "display27", 235, 30, scale=1.06, squeeze=.83)
+            "display27", 235, 30, scale=1.06, squeeze=.83, distress=True)
     paragraph(page, 488, 398,
               "The storm comes ashore in Odisha. Evacuations reach 372,000 people.",
               220)
@@ -610,11 +788,11 @@ def lead_stories(page):
 
     conference(Drawing(page, 752, 145))
     typeset(page, 752, 346, ("COP31 TALKS", "RUN OVERTIME"),
-            "display27", 240, 30, scale=1.06, squeeze=.90)
-    paragraph(page, 752, 398,
+            "display27", 240, 30, scale=1.06, squeeze=.90, distress=True)
+    paragraph(page, 752, 397,
               "Negotiations continue past the deadline after fossil fuel phase-out "
-              "language falls out of the draft.", 240, leading=16, limit=4)
-    page.text(752, 457, "The Guardian, 18:56 UTC", "news12")
+              "language falls out of the draft.", 240, leading=15, limit=4)
+    page.text(752, 458, "The Guardian, 18:56 UTC", "news12")
 
 
 DESK_COLUMNS = (
@@ -647,7 +825,7 @@ def news_desk(page):
     double_rule(page, 466)
     page.text(32, 489, "The News Desk", "display22", scale=.78)
     for x in (337, 655):
-        page.rect(x, 498, .65, 193, RULE)
+        column_rule(page, x, 498, 691)
     for x, width, font, stories in DESK_COLUMNS:
         heading_step = 29 if font == "display27" else 23
         for top, heading, copy in stories:
@@ -701,7 +879,7 @@ def news_briefs(page):
     page.text(512, 771, "In Brief", "display22", scale=.82, align="center")
     rule(page, 766, width=430, weight=.65)
     rule(page, 766, x=562, width=430, weight=.65)
-    page.rect(512, 782, .65, 185, RULE)
+    column_rule(page, 512, 782, 967)
     for i, (heading, copy) in enumerate(BRIEFS):
         column, row = divmod(i, 5)
         x, y = 32 + column * 498, 796 + row * 40
